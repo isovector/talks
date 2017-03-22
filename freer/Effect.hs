@@ -76,19 +76,6 @@ writeToStdOut toStr program = runNat nat program
 
 ------------------------------------------------------------------------------
 
-pretendToWrite :: ∀w effs a
-                . Eff (Writer w ': effs) a
-               -> Eff effs a
-pretendToWrite = handleRelay return bind
-  where
-    bind :: ∀x
-          . Writer w x
-         -> (x -> Eff effs a)
-         -> Eff effs a
-    bind (Tell _) continueWith = continueWith ()
-
-------------------------------------------------------------------------------
-
 handleRelay :: (a -> Eff effs b)
             -> (∀x. m x -> (x -> Eff effs b) -> Eff effs b)
             -> Eff (g ': effs) a
@@ -108,6 +95,19 @@ handleRelay :: (a -> m a)                        return :: a -> m a
             -> (∀x. g x -> (x -> m a) -> m a)    bind   :: m x -> (x -> m a) -> m a
             -> Eff (g ': effs) a
             -> m a
+
+------------------------------------------------------------------------------
+
+pretendToWrite :: ∀w effs a
+                . Eff (Writer w ': effs) a
+               -> Eff effs a
+pretendToWrite = handleRelay return bind
+  where
+    bind :: ∀x
+          . Writer w x
+         -> (x -> Eff effs a)
+         -> Eff effs a
+    bind (Tell _) continueWith = continueWith ()
 
 ------------------------------------------------------------------------------
 
