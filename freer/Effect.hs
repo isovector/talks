@@ -15,7 +15,7 @@ withdrawMTL desired = do
        return Nothing
 
      else do
-       setCurrentBalance $ amount - desired
+       putCurrentBalance $ amount - desired
        return $ Just amount
 
 ------------------------------------------------------------------------------
@@ -42,11 +42,11 @@ withdrawMTL mode desired = do
        return Nothing
 
      else do
-       let setAction =
+       let putAction =
              case mode of
-               ForReal      -> setCurrentBalance
+               ForReal      -> putCurrentBalance
                Test (ioref) -> liftIO . writeIORef ioref
-       setAction $ amount - desired
+       putAction $ amount - desired
        return $ Just amount
 
 ------------------------------------------------------------------------------
@@ -73,7 +73,7 @@ indirection, as always, is the solution. we can push back deciding on how to mak
 
 class Monad m => MonadBank m where
   getCurrentBalance :: m Int
-  setCurrentBalance :: Int -> m ()
+  putCurrentBalance :: Int -> m ()
 
 ------------------------------------------------------------------------------
 
@@ -90,7 +90,7 @@ withdrawMTL desired = do
        return Nothing
 
      else do
-       setCurrentBalance $ amount - desired
+       putCurrentBalance $ amount - desired
        return $ Just amount
 
 ------------------------------------------------------------------------------
@@ -119,7 +119,7 @@ and we need an our instance
 
 instance MonadIO m => MonadBank (IOBankT m) where
   getCurrentBalance = ...
-  setCurrentBalance = ...
+  putCurrentBalance = ...
 
 ------------------------------------------------------------------------------
 
@@ -127,15 +127,15 @@ AND we need other mtl types to lift OUR class up the ladder
 
 instance MonadBank m => MonadBank (ReaderT r m) where
   getCurrentBalance = lift getCurrentBalance
-  setCurrentBalance = lift . getCurrentBalance
+  putCurrentBalance = lift . getCurrentBalance
 
 instance MonadBank m => MonadBank (WriterT w m) where
   getCurrentBalance = lift getCurrentBalance
-  setCurrentBalance = lift . getCurrentBalance
+  putCurrentBalance = lift . getCurrentBalance
 
 instance MonadBank m => MonadBank (StateT s m) where
   getCurrentBalance = lift getCurrentBalance
-  setCurrentBalance = lift . getCurrentBalance
+  putCurrentBalance = lift . getCurrentBalance
 
 etc
 
@@ -199,7 +199,7 @@ withdraw desired = do
        return Nothing
 
      else do
-       setCurrentBalance $ amount - desired
+       putCurrentBalance $ amount - desired
        return $ Just amount
 
 ------------------------------------------------------------------------------
@@ -243,13 +243,13 @@ and in fact, it does. let's look at the boilerplate necessary to implement the `
 
 data Bank a where
   GetCurrentBalance :: Bank Int
-  SetCurrentBalance :: Int -> Bank ()
+  PutCurrentBalance :: Int -> Bank ()
 
 getCurrentBalance :: Member Bank effs => Eff effs Int
 getCurrentBalance = send GetCurrentBalance
 
-setCurrentBalance :: Member Bank effs => Int -> Eff effs ()
-setCurrentBalance amount = send $ SetCurrentBalance amount
+putCurrentBalance :: Member Bank effs => Int -> Eff effs ()
+putCurrentBalance amount = send $ PutCurrentBalance amount
 
 ------------------------------------------------------------------------------
 
@@ -269,7 +269,7 @@ and if this is still too much work for you, I wrote some TH (yet to be merged) t
 
 data Bank a where
   GetCurrentBalance :: Bank Int
-  SetCurrentBalance :: Int -> Bank ()
+  PutCurrentBalance :: Int -> Bank ()
 
 makeFreer ''Bank
 
@@ -340,6 +340,155 @@ which says that if we have an eff stack with no effects, we can just get the com
 
 ------------------------------------------------------------------------------
 
+however, neither of these functions is applicable to us, since we know that at the very least, we have a Bank and a Logger in our eff stack.
+
+so what CAN we do?
+
+we can SIMPLIFY our effect stack!
+
+------------------------------------------------------------------------------
+
+runBank :: Member IO effs
+        => Eff (Bank ': effs) a
+        -> Eff effs a
+runBank = runNat nat
+  where
+    nat :: Bank x -> IO x
+    nat GetCurrentBalance = -- do something in IO and return an Int
+    nat (PutCurrentBalance newValue) = -- do something in IO and return ()
+
+------------------------------------------------------------------------------
+
+this function allows us to interpret a Bank effect in terms of an IO effect.
+the type signature can be read as doing a pattern match on the head of the
+effect list, and then "peeling" it off.
+
+our constraint says that we can do this whenever we know that there is an IO somewhere in the eff stack
+
+------------------------------------------------------------------------------
+
+we can do something similar for Logger:
+
+runLogger :: Member IO effs
+          => Eff (Logger ': effs) a
+          -> Eff effs a
+runLogger = runNat nat
+  where
+    nat :: Logger x -> IO x
+    nat (Log s) = putStrLn s
+
+------------------------------------------------------------------------------
+
+putting it all together:
+
+:t runM . runLogger . runBank
+Eff '[Bank, Logger, IO] a -> IO a
+
+:t runM . runLogger . runBank $ withdraw 50
+IO (Maybe Int)
+
+------------------------------------------------------------------------------
+
+alternatively, we can write test interpreters that run purely. for example, we
+can ignore our logger:
+
+ignoreLogger :: ∀ effs a
+              . Eff (Logger ': effs) a
+             -> Eff effs a
+ignoreLogger = handleRelay pure bind
+  where
+    bind :: ∀x
+          . Logger x
+         -> (x -> Eff effs a)
+         -> Eff effs a
+    bind (Log _) continueWith = continueWith ()
+
+------------------------------------------------------------------------------
+
+TODO: move commentary from next section to here
+
+------------------------------------------------------------------------------
+
+
+and we'll pretend like our Bank is a State:
+
+testBank :: ∀ effs a
+           . Int
+          -> Eff (Bank ': effs) a
+          -> Eff effs a
+testBank balance = handleRelayS balance pure bind
+  where
+    bind :: ∀x
+          . Int
+         -> Bank x
+         -> (Int -> x -> Eff effs a)
+         -> Eff effs a
+    bind s GetCurrentBalance      continueWith = continueWith s s
+    bind _ (PutCurrentBalance s') continueWith = continueWith s' ()
+
+------------------------------------------------------------------------------
+
+i know the type signatures here are pretty intimidating, but fear not - its not so bad
+
+handleRelayS essentially bundles up `return` and `bind` from what would
+otherwise be our Monad instance, and instead just keeps them as a pair of functions
+
+the S in the name means that it also passing some state along as it tears down
+our Bank effect - we use that state as the amount of money currently in the
+bank account
+
+bind is expressed in continuation passing style - it's called with
+a continuation which takes a new state, the value to return to the monadic
+bind, and then continues on with the computation
+
+------------------------------------------------------------------------------
+
+with these interpreters under our belts, we're now capable of writing tests
+that are type-enforced to be unable to do IO
+
+:t run . ignoreLogger . testBank
+Eff '[Bank, Logger] a -> a
+
+:t run . ignoreLogger . testBank $ withdraw 50
+Maybe Int
+
+------------------------------------------------------------------------------
+
+wow! we've successfully run the exact same code in IO and entirely purely, with
+the caller deciding what's going on.
+
+we didn't do any work to mock things; we got this capability for free, entirely by separating "what we want" (the eff bits) from "how to do it" (the interpreters)
+
+this has some far-reaching consequences. the biggest one is that we can unit
+test our interpreters, and test our eff program only over in the test
+interpreters. the closure properties of this composition mean that the real
+implementation MUST be correct
+
+------------------------------------------------------------------------------
+
+but the reusability of this approach doesn't stop there! looking at the effects
+we defined, it's pretty clear they're not as general as they could be:
+
+data Bank a where
+  GetCurrentBalance :: Bank Int
+  PutCurrentBalance :: Int -> Bank ()
+
+data Logger a where
+  Log :: String -> Logger ()
+
+why not
+
+data State s a where
+  Get :: State s s
+  Put :: s -> State s ()
+
+data Writer w a where
+  Tell :: w -> Writer w ()
+
+------------------------------------------------------------------------------
+
+which gives us
+
 {-# LANGUAGE ScopedTypeVariables #-}
 
 withdraw :: ( Member (State Int)     effs
@@ -358,46 +507,34 @@ withdraw desired = do
        modify (subtract desired)
        return $ Just amount
 
-------------------------------------------------------------------------------
+we need the scoped type on amount, because eff allows us to embed as multiple
+effects of the same sort, so long as their types aren't identical
 
-{-# LANGUAGE GADTs #-}
-
-data State s result where
-  Get :: State s s
-  Put :: s -> State s ()
-
-get :: Member (State s) effs => Eff effs s
-get = send $ Get
-
-put :: Member (State s) effs => s -> Eff effs ()
-put s = send $ Put s
+this means no more magic giant data structures just to pass around all of the
+disparate pieces of State that you need; just add one State per thing you care
+about
 
 ------------------------------------------------------------------------------
 
-modify :: Member (State s) effs
-       => (s -> s)
-       -> Eff effs ()
-modify f = do
-  x <- get
-  put $ f x
+the benefit of using more general effects is that they're more likely to
+already have interpreters for behaviors you want. and it means that any
+interpreters YOU write become available to anyone who writes eff code in the
+future
 
 ------------------------------------------------------------------------------
 
-twoStates :: ( Member (State Bool)   effs
-             , Member (State String) effs
-             )
-          => Eff effs ()
-twoStates = do
-  modify not
-  modify (++ "hello")
+we've built a library for code that does "implementation details", leaving just
+the "business logic" to be defined.
 
-------------------------------------------------------------------------------
+this is very significant. i've written the same code twice now. it streams data
+out of CSV files into a distributed queue. in MTL it was about 1000 lines, all
+things considered, with testing capabilities.
 
-data Writer w result where
-  Tell :: w -> Writer w ()
+in eff it was 20 lines of business logic (including a 8 line type signature),
+and another 24 of composing the interpreters for tests and for the main
+application
 
-tell :: Member (Writer w) effs => w -> Eff effs ()
-tell w = send $ Tell w
+
 
 ------------------------------------------------------------------------------
 
@@ -453,7 +590,7 @@ evalState :: ∀s effs a
            . s
           -> Eff (State s ': effs) a
           -> Eff effs a
-evalState s = handleRelayS pure bind
+evalState s = handleRelayS s pure bind
   where
     bind :: ∀x
           . s
