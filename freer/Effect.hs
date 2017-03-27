@@ -26,13 +26,13 @@ withdrawMTL desired = do
 
 data Mode = ForReal | Test (IORef Int)
 
-withdrawMTL :: ( MonadIO m
-               , MonadLogger m
-               )
-            => Mode
-            -> Int
-            -> m (Maybe Int)
-withdrawMTL mode desired = do
+withdraw :: ( MonadIO m
+            , MonadLogger m
+            )
+         => Mode
+         -> Int
+         -> m (Maybe Int)
+withdraw mode desired = do
   amount <- case mode of
               ForReal      -> getCurrentBalance
               Test (ioref) -> liftIO $ readIORef ioref
