@@ -4,6 +4,18 @@
 
 ----
 
+Don't Eff It Up
+===============
+
+Free Monads in Action
+---------------------
+
+Sandy Maguire
+
+reasonablypolymorphic.com
+
+----
+
 .. code:: haskell
 
   withdraw :: ( MonadIO     m
@@ -28,7 +40,8 @@
 .. raw:: html
 
   <pre>
-  <span class="new">data Mode = ForReal | Test (IORef Int)</span>
+  <span class="new">data Mode = ForReal
+            | Test (IORef Int)</span>
 
   withdraw :: ( MonadIO     m
               , MonadLogger m
@@ -38,9 +51,9 @@
            -> m (Maybe Int)
 
   withdraw mode desired = do
-    <span class="new">amount <- case mode of
-                ForReal      -> </span>getCurrentBalance<span class="new">
-                Test (ioref) -> liftIO $ readIORef ioref</span>
+    amount <- <span class="new">case mode of
+                ForReal    -> </span>getCurrentBalance<span class="new">
+                Test ioref -> liftIO $ readIORef ioref</span>
     if amount < desired
        then do
          log "not enough funds"
@@ -49,13 +62,32 @@
        else do
          <span class="new">let putAction =
                case mode of
-                 ForReal      -> </span>putCurrentBalance<span class="new">
-                 Test (ioref) -> liftIO . writeIORef ioref</span>
+                 ForReal    -> </span>putCurrentBalance<span class="new">
+                 Test ioref -> liftIO . writeIORef ioref</span>
          putAction $ amount - desired
          return $ Just amount
   </pre>
 
 ----
+
+This sucks!
+===========
+
+* IO is directly exposed
+* Test code is interspersed with our real logic
+* No compiler guarantees that we mocked *all* of our IO
+
+----
+
+Wouldn't it be nice...
+======================
+
+... if we could just write the program that we cared about?
+
+----
+
+Polymorphism to the rescue!
+===========================
 
 .. code:: haskell
 
@@ -64,6 +96,9 @@
     putCurrentBalance :: Int -> m ()
 
 ----
+
+The code we want to write.
+==========================
 
 .. raw:: html
 
@@ -88,6 +123,24 @@
 
 ----
 
+By adding this new constraint, we can abstract over IO.
+
+Our application and test code can swap out different monads.
+
+----
+
+All is right in the world.
+==========================
+
+Or is it?
+
+This abstraction comes with a heavy cost.
+
+----
+
+We need a carrier...
+====================
+
 .. code:: haskell
 
   newtype IOBankT m a = IOBankT
@@ -95,6 +148,9 @@
     }
 
 ----
+
+one that behaves with MTL...
+============================
 
 .. code:: haskell
 
@@ -118,6 +174,9 @@
 
 ----
 
+which implements our monad...
+=============================
+
 .. code:: haskell
 
   instance MonadIO m => MonadBank (IOBankT m) where
@@ -125,6 +184,9 @@
     putCurrentBalance = ...
 
 ----
+
+and doesn't need to be at the top of the stack...
+=================================================
 
 .. code:: haskell
 
@@ -144,6 +206,22 @@
 
 ----
 
+*Nobody* has time for this crap.
+================================
+
+Boilerplate gets in the way.
+
+----
+
+Things that take a lot of work don't get done.
+==============================================
+
+Even if they're best practices.
+
+----
+
+# TODO(sandy): cut this?
+
 .. code:: haskell
 
   data Bank a = ...
@@ -152,6 +230,23 @@
     liftBank :: Bank a -> m a
 
 ----
+
+Monad transformers are a hack.
+==============================
+
+Everything else we use in Haskell composes.
+
+Why don't monads?
+
+----
+
+There's a better way.
+=====================
+
+----
+
+Eff to the Rescue!
+==================
 
 .. raw:: html
 
@@ -176,6 +271,9 @@
 
 ----
 
+Small change. Big impact.
+=========================
+
 .. code:: haskell
 
   withdraw :: ( MonadBank   m
@@ -183,6 +281,7 @@
               )
            => Int
            -> m (Maybe Int)
+
 
 
   withdraw :: ( Member Bank   effs
@@ -193,6 +292,44 @@
 
 ----
 
+Listen to the types.
+====================
+
+----
+
+An unambiguous monad.
+=====================
+
+.. raw:: html
+
+  <pre>
+  withdraw :: ( Member Bank   effs
+              , Member Logger effs
+              )
+           => Int
+           -> <span class="new">Eff effs</span> (Maybe Int)
+  </pre>
+
+----
+
+No nominal typing.
+==================
+
+.. raw:: html
+
+  <pre>
+  withdraw :: ( <span class="new">Member Bank   effs</span>
+              , Member Logger effs
+              )
+           => Int
+           -> Eff effs (Maybe Int)
+  </pre>
+
+----
+
+No more typeclasses.
+====================
+
 .. code:: haskell
 
   {-# LANGUAGE GADTs #-}
@@ -201,10 +338,17 @@
     GetCurrentBalance :: Bank Int
     PutCurrentBalance :: Int -> Bank ()
 
+----
+
+Some helpers.
+=============
+
+.. code:: haskell
 
   getCurrentBalance :: Member Bank effs
                     => Eff effs Int
   getCurrentBalance = send GetCurrentBalance
+
 
 
   putCurrentBalance :: Member Bank effs
@@ -213,6 +357,9 @@
   putCurrentBalance amount = send $ PutCurrentBalance amount
 
 ----
+
+Still too much boilerplate?
+===========================
 
 .. code:: haskell
 
@@ -226,6 +373,9 @@
 
 ----
 
+Don't forget the lumberjack.
+============================
+
 .. code:: haskell
 
   data Logger a where
@@ -235,13 +385,18 @@
 
 ----
 
-.. code:: haskell
+What's left?
+============
 
+.. raw:: html
+
+  <pre>
   withdraw :: ( Member Bank   effs
               , Member Logger effs
               )
            => Int
-           -> Eff effs (Maybe Int)
+           -> Eff <span class="new">effs</span> (Maybe Int)
+  </pre>
 
 ----
 
@@ -253,6 +408,9 @@
 
 ----
 
+An exact correspondence.
+========================
+
 .. code:: haskell
 
   StateT s (ReaderT r IO) a
@@ -263,11 +421,23 @@
 
 ----
 
+So what?
+========
+
+`main` runs in `IO` -- not in `Eff`.
+
+----
+
+We have one special function:
+
 .. code:: haskell
 
   runM :: Monad m => Eff '[m] a -> m a
 
 ----
+
+Not just for monads!
+====================
 
 .. code:: haskell
 
