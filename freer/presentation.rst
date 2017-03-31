@@ -11,8 +11,33 @@ Free Monads in Action
 ---------------------
 
 Sandy Maguire
+-------------
 
 reasonablypolymorphic.com
+
+----
+
+A dumb example.
+===============
+
+We will make a (very) simple banking app.
+
+* It will attempt to withdraw funds
+* Logs a message if it fails
+* Updates the current balance if it succeeds
+
+----
+
+Types first!
+============
+
+.. code:: haskell
+
+  withdraw :: ( MonadIO     m
+              , MonadLogger m
+              )
+           => Int
+           -> m (Maybe Int)
 
 ----
 
@@ -37,12 +62,24 @@ reasonablypolymorphic.com
 
 ----
 
+But how can we test it?
+=======================
+
+----
+
+We can add a parameter that describes whether we want to run this thing for
+real or not.
+
+.. code:: haskell
+
+  data Mode = ForReal
+            | Test (IORef Int)
+
+----
+
 .. raw:: html
 
   <pre>
-  <span class="new">data Mode = ForReal
-            | Test (IORef Int)</span>
-
   withdraw :: ( MonadIO     m
               , MonadLogger m
               )
@@ -340,9 +377,6 @@ No more typeclasses.
 
 ----
 
-Some helpers.
-=============
-
 .. code:: haskell
 
   getCurrentBalance :: Member Bank effs
@@ -400,6 +434,9 @@ What's left?
 
 ----
 
+The REPL can help.
+==================
+
 .. code:: haskell
 
   > :kind Eff
@@ -415,7 +452,8 @@ An exact correspondence.
 
   StateT s (ReaderT r IO) a
 
-.. code:: haskell
+
+
 
   Eff '[State s, Reader r, IO] a
 
@@ -445,9 +483,52 @@ Not just for monads!
 
 ----
 
+`run` and `runM` provide base cases.
+
+We also need coinductive cases.
+
+----
+
+Coinduction.
+============
+
+We want a function that looks like this:
+
 .. code:: haskell
 
-  -- TODO(sandy): split this up and highlight things
+  runLogger :: Eff (Logger ': effs) a
+            -> Eff effs a
+
+It "peels" a `Logger` off of our eff stack.
+
+----
+
+What does it mean to run a `Logger`? Maybe we want to log those messages to
+`stdout`.
+
+.. raw:: html
+
+  <pre>
+  runLogger :: <span class="new">Member IO effs</span>
+            => Eff (Logger ': effs) a
+            -> Eff effs a
+  </pre>
+
+----
+
+All for naught?
+===============
+
+No!
+---
+
+Even though we have `IO` here, it's not the program that requires it; only the
+intepretation.
+
+----
+
+.. code:: haskell
+
   runLogger :: Member IO effs
             => Eff (Logger ': effs) a
             -> Eff effs a
@@ -456,6 +537,11 @@ Not just for monads!
     where
       nat :: Logger x -> IO x
       nat (Log s) = putStrLn s
+
+----
+
+We can do the same thing for `Bank`.
+====================================
 
 ----
 
@@ -473,17 +559,25 @@ Not just for monads!
 
 ----
 
+Back to the REPL.
+=================
+
 .. code:: haskell
 
-  > :t runM . runLogger . runBank
+  > :t (runM . runLogger . runBank)
 
   Eff '[Bank, Logger, IO] a -> IO a
 
 
 
-  > :t runM . runLogger . runBank $ withdraw 50
+  > :t (runM . runLogger . runBank $ withdraw 50)
 
   IO (Maybe Int)
+
+----
+
+But how can we test this?
+=========================
 
 ----
 
@@ -499,7 +593,7 @@ Not just for monads!
             . Logger x
            -> (x -> Eff effs a)
            -> Eff effs a
-      bind (Log _) continueWith = continueWith ()
+      bind (Log _) cont = cont ()
 
 ----
 
@@ -517,24 +611,59 @@ Not just for monads!
            -> Bank x
            -> (Int -> x -> Eff effs a)
            -> Eff effs a
-      bind s GetCurrentBalance      continueWith = continueWith s  s
-      bind _ (PutCurrentBalance s') continueWith = continueWith s' ()
+      bind s GetCurrentBalance      cont = cont s  s
+      bind _ (PutCurrentBalance s') cont = cont s' ()
 
 ----
 
+Finally, pure interpretations!
+==============================
+
 .. code:: haskell
 
-  > :t run . ignoreLogger . testBank
+  > :t (run . ignoreLogger . testBank)
 
   Eff '[Bank, Logger] a -> a
 
 
 
-  > :t run . ignoreLogger . testBank $ withdraw 50
+  > :t (run . ignoreLogger . testBank $ withdraw 50)
 
   Maybe Int
 
 ----
+
+So far, this doesn't seem very reusable.
+========================================
+
+----
+
+Instead of this...
+==================
+
+.. code:: haskell
+
+  data Logger a where
+    Log :: String -> Logger ()
+
+----
+
+Why not this?
+=============
+
+.. raw:: html
+
+  <pre>
+  data <span class="new">Writer w</span> a where
+    Tell :: <span class="new">w</span> -> Writer w ()
+  </pre>
+
+Note: there is no `Monoid` constraint here!
+
+----
+
+Instead of this...
+==================
 
 .. code:: haskell
 
@@ -542,11 +671,10 @@ Not just for monads!
     GetCurrentBalance :: Bank Int
     PutCurrentBalance :: Int -> Bank ()
 
-
-  data Logger a where
-    Log :: String -> Logger ()
-
 ----
+
+Why not this?
+=============
 
 .. raw:: html
 
@@ -554,11 +682,22 @@ Not just for monads!
   data <span class="new">State s</span> a where
     Get :: State s <span class="new">s</span>
     Put :: <span class="new">s</span> -> State s ()
-
-
-  data <span class="new">Writer w</span> a where
-    Tell :: <span class="new">w</span> -> Writer w ()
   </pre>
+
+----
+
+We can write helpers, too.
+==========================
+
+.. code:: haskell
+
+  modify :: Member (State s) effs
+         => (s -> s)
+         -> Eff effs ()
+
+  modify f = do
+    s <- get
+    put $ f s
 
 ----
 
@@ -584,4 +723,12 @@ Not just for monads!
          <span class="new">put</span> $ amount - desired
          return $ Just amount
   </pre>
+
+----
+
+Mo' generality = fewer problems.
+================================
+
+More general types are more likely to already have the interpretations that you
+want.
 
