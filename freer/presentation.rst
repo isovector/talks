@@ -274,11 +274,11 @@ Eff to the Rescue!
 .. raw:: html
 
   <pre>
-  withdraw :: ( <span class="new">Member Bank   effs</span>
-              , <span class="new">Member Logger effs</span>
+  withdraw :: ( <span class="new">Member Bank   r</span>
+              , <span class="new">Member Logger r</span>
               )
            => Int
-           -> <span class="new">Eff effs</span> (Maybe Int)
+           -> <span class="new">Eff r</span> (Maybe Int)
 
   withdraw desired = do
     amount <- getCurrentBalance
@@ -307,11 +307,11 @@ Small change. Big impact.
 
 
 
-  withdraw :: ( Member Bank   effs
-              , Member Logger effs
+  withdraw :: ( Member Bank   r
+              , Member Logger r
               )
            => Int
-           -> Eff effs (Maybe Int)
+           -> Eff r (Maybe Int)
 
 ----
 
@@ -326,11 +326,11 @@ An unambiguous monad.
 .. raw:: html
 
   <pre>
-  withdraw :: ( Member Bank   effs
-              , Member Logger effs
+  withdraw :: ( Member Bank   r
+              , Member Logger r
               )
            => Int
-           -> <span class="new">Eff effs</span> (Maybe Int)
+           -> <span class="new">Eff r</span> (Maybe Int)
   </pre>
 
 ----
@@ -341,11 +341,11 @@ No nominal typing.
 .. raw:: html
 
   <pre>
-  withdraw :: ( <span class="new">Member Bank   effs</span>
-              , Member Logger effs
+  withdraw :: ( <span class="new">Member Bank   r</span>
+              , Member Logger r
               )
            => Int
-           -> Eff effs (Maybe Int)
+           -> Eff r (Maybe Int)
   </pre>
 
 ----
@@ -365,15 +365,15 @@ No more typeclasses.
 
 .. code:: haskell
 
-  getCurrentBalance :: Member Bank effs
-                    => Eff effs Int
+  getCurrentBalance :: Member Bank r
+                    => Eff r Int
   getCurrentBalance = send GetCurrentBalance
 
 
 
-  putCurrentBalance :: Member Bank effs
+  putCurrentBalance :: Member Bank r
                     => Int
-                    -> Eff effs ()
+                    -> Eff r ()
   putCurrentBalance amount = send $ PutCurrentBalance amount
 
 ----
@@ -411,11 +411,11 @@ What's left?
 .. raw:: html
 
   <pre>
-  withdraw :: ( Member Bank   effs
-              , Member Logger effs
+  withdraw :: ( Member Bank   r
+              , Member Logger r
               )
            => Int
-           -> Eff <span class="new">effs</span> (Maybe Int)
+           -> Eff <span class="new">r</span> (Maybe Int)
   </pre>
 
 ----
@@ -471,19 +471,17 @@ Not just for monads!
 
 `run` and `runM` provide base cases.
 
-We also need coinductive cases.
-
 ----
 
-Coinduction.
-============
+Induction.
+==========
 
 We want a function that looks like this:
 
 .. code:: haskell
 
-  runLogger :: Eff (Logger ': effs) a
-            -> Eff effs a
+  runLogger :: Eff (Logger ': r) a
+            -> Eff r a
 
 It "peels" a `Logger` off of our eff stack.
 
@@ -496,9 +494,9 @@ Maybe we want to log those messages to `stdout`.
 .. raw:: html
 
   <pre>
-  runLogger :: <span class="new">Member IO effs</span>
-            => Eff (Logger ': effs) a
-            -> Eff effs a
+  runLogger :: <span class="new">Member IO r</span>
+            => Eff (Logger ': r) a
+            -> Eff r a
   </pre>
 
 ----
@@ -516,9 +514,9 @@ intepretation.
 
 .. code:: haskell
 
-  runLogger :: Member IO effs
-            => Eff (Logger ': effs) a
-            -> Eff effs a
+  runLogger :: Member IO r
+            => Eff (Logger ': r) a
+            -> Eff r a
 
   runLogger = runNat nat
     where
@@ -534,9 +532,9 @@ We can do the same thing for `Bank`.
 
 .. code:: haskell
 
-  runBank :: Member IO effs
-          => Eff (Bank ': effs) a
-          -> Eff effs a
+  runBank :: Member IO r
+          => Eff (Bank ': r) a
+          -> Eff r a
 
   runBank = runNat nat
     where
@@ -574,34 +572,34 @@ But how can we test this?
 
   {-# LANGUAGE ScopedTypeVariables #-}
 
-  ignoreLogger :: forall effs a
-                . Eff (Logger ': effs) a
-               -> Eff effs a
+  ignoreLogger :: forall r a
+                . Eff (Logger ': r) a
+               -> Eff r a
 
   ignoreLogger = handleRelay pure bind
     where
       bind :: forall x
             . Logger x
-           -> (x -> Eff effs a)
-           -> Eff effs a
+           -> (x -> Eff r a)
+           -> Eff r a
       bind (Log _) cont = cont ()
 
 ----
 
 .. code:: haskell
 
-  testBank :: forall effs a
+  testBank :: forall r a
              . Int
-            -> Eff (Bank ': effs) a
-            -> Eff effs a
+            -> Eff (Bank ': r) a
+            -> Eff r a
 
-  testBank balance = handleRelayS balance pure bind
+  testBank balance = handleRelayS balance (const pure) bind
     where
       bind :: forall x
             . Int
            -> Bank x
-           -> (Int -> x -> Eff effs a)
-           -> Eff effs a
+           -> (Int -> x -> Eff r a)
+           -> Eff r a
       bind s GetCurrentBalance      cont = cont s  s
       bind _ (PutCurrentBalance s') cont = cont s' ()
 
@@ -681,18 +679,18 @@ Why not this?
 
 .. raw:: html
 
-  <h1>This gives us more <span class="cursive" style="font-size: 48pt;">semantic meaning</span>.</h1>
+  <h1>This gives us more <span class="cursive" style="font-size: 48pt;">denotational meaning</span>.</h1>
 
 ----
 
 .. raw:: html
 
   <pre>
-  withdraw :: ( Member <span class="new">(State Int)</span>     effs
-              , Member <span class="new">(Writer String)</span> effs
+  withdraw :: ( Member <span class="new">(State Int)</span>     r
+              , Member <span class="new">(Writer String)</span> r
               )
            => Int
-           -> Eff effs (Maybe Int)
+           -> Eff r (Maybe Int)
 
   withdraw desired = do
     amount <span class="new">:: Int</span> <- <span class="new">get</span>
@@ -714,6 +712,19 @@ Mo' generality = fewer problems.
 More general types are more likely to already have the interpretations that you
 want.
 
-
+----
 
 # 33 minutes
+
+NOTES
+
+* talk about how a free monad is free of interpretation, but it needs to come from somewhere
+* talk about the freer-effects package
+* no more typeclasses is confusing
+* need to discuss GADTs and kleislis
+* we have one special function needs some thoughts on how to make it flow better
+* break your intuition behind what it means to be a writer
+    * show how writers can stream
+* show off interpose to inject code
+* hammer in that we have separated our business logic from our implementation details
+
