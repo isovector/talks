@@ -1,19 +1,19 @@
 :title: Don't Eff It Up
 :data-transition-duration: 150
+
+:css: fonts.css
 :css: presentation.css
 
 ----
 
-Don't Eff It Up
-===============
+:id: title
 
-Free Monads in Action
----------------------
+.. raw:: html
 
-Sandy Maguire
--------------
-
-reasonablypolymorphic.com
+  <h1>Don't Eff It Up</h1>
+  <h2>Free Monads in Action</h2>
+  <h3>A talk by <span>Sandy Maguire</span></h3>
+  <h4>reasonablypolymorphic.com</h4>
 
 ----
 
@@ -67,8 +67,7 @@ But how can we test it?
 
 ----
 
-We can add a parameter that describes whether we want to run this thing for
-real or not.
+A new datatype describing if we're running for real:
 
 .. code:: haskell
 
@@ -193,9 +192,6 @@ one that behaves with MTL...
 
   {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-  newtype IOBankT m a = IOBankT
-    { runIOBankT :: IdentityT m a
-    }
     deriving ( Functor
              , Applicative
              , Monad
@@ -243,10 +239,9 @@ and doesn't need to be at the top of the stack...
 
 ----
 
-*Nobody* has time for this crap.
-================================
+.. raw:: html
 
-Boilerplate gets in the way.
+  <h1 style="text-align: center; font-size: 48pt;"><span class="cursive">Nobody</span> has time for this crap.</h1>
 
 ----
 
@@ -255,16 +250,7 @@ Things that take a lot of work don't get done.
 
 Even if they're best practices.
 
-----
-
-# TODO(sandy): cut this?
-
-.. code:: haskell
-
-  data Bank a = ...
-
-  class Monad m => MonadBank m where
-    liftBank :: Bank a -> m a
+Boilerplate gets in the way.
 
 ----
 
@@ -503,8 +489,9 @@ It "peels" a `Logger` off of our eff stack.
 
 ----
 
-What does it mean to run a `Logger`? Maybe we want to log those messages to
-`stdout`.
+What does it mean to run a `Logger`?
+
+Maybe we want to log those messages to `stdout`.
 
 .. raw:: html
 
@@ -568,7 +555,9 @@ Back to the REPL.
 
   Eff '[Bank, Logger, IO] a -> IO a
 
+----
 
+.. code:: haskell
 
   > :t (runM . runLogger . runBank $ withdraw 50)
 
@@ -582,6 +571,8 @@ But how can we test this?
 ----
 
 .. code:: haskell
+
+  {-# LANGUAGE ScopedTypeVariables #-}
 
   ignoreLogger :: forall effs a
                 . Eff (Logger ': effs) a
@@ -625,7 +616,9 @@ Finally, pure interpretations!
 
   Eff '[Bank, Logger] a -> a
 
+----
 
+.. code:: haskell
 
   > :t (run . ignoreLogger . testBank $ withdraw 50)
 
@@ -686,26 +679,15 @@ Why not this?
 
 ----
 
-We can write helpers, too.
-==========================
+.. raw:: html
 
-.. code:: haskell
-
-  modify :: Member (State s) effs
-         => (s -> s)
-         -> Eff effs ()
-
-  modify f = do
-    s <- get
-    put $ f s
+  <h1>This gives us more <span class="cursive" style="font-size: 48pt;">semantic meaning</span>.</h1>
 
 ----
 
 .. raw:: html
 
   <pre>
-  <span class="new">{-# LANGUAGE ScopedTypeVariables #-}</span>
-
   withdraw :: ( Member <span class="new">(State Int)</span>     effs
               , Member <span class="new">(Writer String)</span> effs
               )
@@ -732,3 +714,6 @@ Mo' generality = fewer problems.
 More general types are more likely to already have the interpretations that you
 want.
 
+
+
+# 33 minutes
