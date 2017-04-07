@@ -69,3 +69,12 @@ p, li {
   border: none !important;
 }
 
+.bigass {
+  font-size: 100pt;
+  width: 100px;
+  margin: 0 auto;
+}
+
+.down {
+  -webkit-transform: translateX(-200px) rotate(90deg); /* Chrome, Safari, Opera */
+}

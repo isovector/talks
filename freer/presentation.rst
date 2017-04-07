@@ -11,7 +11,7 @@
 .. raw:: html
 
   <h1>Don't Eff It Up</h1>
-  <h2>Free Monads in Action</h2>
+  <h2>Freer Monads in Action</h2>
   <h3>A talk by <span>Sandy Maguire</span></h3>
   <h4>reasonablypolymorphic.com</h4>
 
@@ -268,6 +268,23 @@ There's a better way.
 
 ----
 
+Free monads.
+============
+
+Monadic programs expressed as data structures we can manipulate.
+
+Provided by the `freer-effects` package.
+
+----
+
+.. raw:: html
+
+  <h1 class="cursive">
+  Write it now; decide what it means later.
+  </h1>
+
+----
+
 Eff to the Rescue!
 ==================
 
@@ -305,7 +322,11 @@ Small change. Big impact.
            => Int
            -> m (Maybe Int)
 
+.. raw:: html
 
+  <div class="bigass down">➠</div>
+
+.. code:: haskell
 
   withdraw :: ( Member Bank   r
               , Member Logger r
@@ -350,8 +371,8 @@ No nominal typing.
 
 ----
 
-No more typeclasses.
-====================
+Effects as data.
+================
 
 .. code:: haskell
 
@@ -369,7 +390,9 @@ No more typeclasses.
                     => Eff r Int
   getCurrentBalance = send GetCurrentBalance
 
+----
 
+.. code:: haskell
 
   putCurrentBalance :: Member Bank r
                     => Int
@@ -438,8 +461,11 @@ An exact correspondence.
 
   StateT s (ReaderT r IO) a
 
+.. raw:: html
 
+  <div class="bigass down">⬌</div>
 
+.. code:: haskell
 
   Eff '[State s, Reader r, IO] a
 
@@ -539,8 +565,8 @@ We can do the same thing for `Bank`.
   runBank = runNat nat
     where
       nat :: Bank x -> IO x
-      nat GetCurrentBalance            = -- do something in IO and return an Int
-      nat (PutCurrentBalance newValue) = -- do something in IO and return ()
+      nat GetCurrentBalance            =  -- use IO to return an Int
+      nat (PutCurrentBalance newValue) =  -- perform IO and return ()
 
 ----
 
@@ -714,17 +740,104 @@ want.
 
 ----
 
+A drop-in for MTL?
+==================
+
+Yes! But more than just that!
+
+----
+
+A conceptually different execution model.
+=========================================
+
+In MTL:
+
+.. code:: haskell
+
+  runReaderT :: ReaderT x m a -> x -> m a
+
+In Eff:
+
+.. code:: haskell
+
+  runReader :: Eff (Reader x ': r) a -> x -> Eff r a
+
+----
+
+Interpreting effects in terms of one another.
+=============================================
+
+.. code:: haskell
+
+  data Exc e a where
+    ThrowError :: e -> Exc e a
+  makeFreer ''Exc
+
+
+  accumThenThrow :: ( Eq e
+                    , Monoid e
+                    , Member (Exc e) r
+                    )
+                  => Eff (Writer e ': r) a
+                  -> Eff r a
+  accumThenThrow prog = do
+    let (a, e) = pureWriter prog
+    unless (e == mempty) $ throwError e
+    return a
+
+----
+
+Non-trivial transformations.
+============================
+
+.. code:: haskell
+
+  data SetOf s a where
+    SetAdd      :: s -> SetOf s ()
+    SetContains :: s -> SetOf s Bool
+  makeFreer ''SetOf
+
+----
+
+.. code:: haskell
+
+  dedupWriter :: ( Member (SetOf  w) r
+                 , Member (Writer w) r
+                 )
+              => Eff r a
+              -> Eff r a
+  dedupWriter = interpose pure bind
+    where
+      bind (Tell w) cont = do
+        alreadyTold <- setContains w
+        unless alreadyTold $ do
+          setAdd w
+          tell w
+        cont ()
+
+----
+
+Summing up.
+===========
+
+* Eff gives us the flexibility of MTL without the boilerplate.
+* We get testing (mostly) for free.
+* We're forced to separate our business logic from implementation details.
+
+----
+
+Thanks for listening!
+=====================
+
+Questions?
+==========
+
+----
+
 # 33 minutes
 
 NOTES
 
-* talk about how a free monad is free of interpretation, but it needs to come from somewhere
-* talk about the freer-effects package
-* no more typeclasses is confusing
-* need to discuss GADTs and kleislis
 * we have one special function needs some thoughts on how to make it flow better
-* break your intuition behind what it means to be a writer
-    * show how writers can stream
-* show off interpose to inject code
 * hammer in that we have separated our business logic from our implementation details
 
