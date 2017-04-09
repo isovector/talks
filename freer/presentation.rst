@@ -544,10 +544,10 @@ intepretation.
             => Eff (Logger ': r) a
             -> Eff r a
 
-  runLogger = runNat nat
+  runLogger = runNat logger2io
     where
-      nat :: Logger x -> IO x
-      nat (Log s) = putStrLn s
+      logger2io :: Logger x -> IO x
+      logger2io (Log s) = putStrLn s
 
 ----
 
@@ -562,11 +562,11 @@ We can do the same thing for `Bank`.
           => Eff (Bank ': r) a
           -> Eff r a
 
-  runBank = runNat nat
+  runBank = runNat bank2io
     where
-      nat :: Bank x -> IO x
-      nat GetCurrentBalance            =  -- use IO to return an Int
-      nat (PutCurrentBalance newValue) =  -- perform IO and return ()
+      bank2io :: Bank x -> IO x
+      bank2io GetCurrentBalance            =  -- use IO to return an Int
+      bank2io (PutCurrentBalance newValue) =  -- perform IO and return ()
 
 ----
 
@@ -773,6 +773,9 @@ Interpreting effects in terms of one another.
     ThrowError :: e -> Exc e a
   makeFreer ''Exc
 
+----
+
+.. code:: haskell
 
   accumThenThrow :: ( Eq e
                     , Monoid e
@@ -831,13 +834,4 @@ Thanks for listening!
 
 Questions?
 ==========
-
-----
-
-# 33 minutes
-
-NOTES
-
-* we have one special function needs some thoughts on how to make it flow better
-* hammer in that we have separated our business logic from our implementation details
 
