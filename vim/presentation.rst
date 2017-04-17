@@ -312,6 +312,17 @@ Parsi-motion-y.
 
 ----
 
+Learning more.
+==============
+
+.. raw:: html
+
+  <blockquote>:help motion</blockquote>
+
+for so many more.
+
+----
+
 Motions ain't everything.
 =========================
 
@@ -521,25 +532,39 @@ In general, the "open" character inserts spaces.
 
 ----
 
-Delete surrounding.
-===================
+Reindent code.
+==============
 
 .. raw:: html
 
-  <blockquote>ds&#9187;</blockquote>
-
-Doesn't take a motion, but still pretty sweet.
+  <blockquote>=&#9187;</blockquote>
 
 ----
 
 .. raw:: html
 
-  <pre class="buffer space">shouldnt be 'quote<span class="cursor">d</span>'</pre>
+  <pre class="buffer"><span class="cursor">i</span>nt blah() {
+  return 0;
+  }</pre>
 
-  <div class="group">
-  <blockquote>ds'</blockquote>
-  <pre class="buffer">shouldnt be <span class="cursor">q</span>uoted</pre>
-  </div>
+  <blockquote>=G</blockquote>
+
+  <pre class="buffer space"><span class="cursor">i</span>nt blah() {
+      return 0;
+  }</pre>
+
+Doesn't work super well for Haskell, unfortunately.
+
+----
+
+Learning more.
+==============
+
+.. raw:: html
+
+  <blockquote>:help operators</blockquote>
+
+for so many more.
 
 ----
 
@@ -591,7 +616,7 @@ You can't **move** by a text object, but you can **operate** on one.
 Inside and around.
 ==================
 
-Most text-objects target **inside** (excluding) or **around** (including) some structure.
+Most text objects target **inside** (excluding) or **around** (including) some structure.
 
 .. raw:: html
 
@@ -622,6 +647,38 @@ Most text-objects target **inside** (excluding) or **around** (including) some s
   <blockquote>&#10803;a]</blockquote>
   <pre class="buffer">mconcat <span class="tobj">["hello", "goodbye"]</span></pre>
   </div>
+
+----
+
+Text objects can help if your cursor isn't in the right position for a motion.
+
+.. raw:: html
+
+  <pre class="buffer space">I will bring do<span class="cursor">o</span>m cookies</pre>
+
+  <div class="group">
+  <blockquote>dw</blockquote>
+  <pre class="buffer">I will bring do<span class="cursor">c</span>ookies</pre>
+  </div>
+
+  <div class="group">
+  <blockquote>daw</blockquote>
+  <pre class="buffer">I will bring <span class="cursor">c</span>ookies</pre>
+  </div>
+
+
+----
+
+Learning more.
+==============
+
+.. raw:: html
+
+  <blockquote>:help text-obj</blockquote>
+
+for so many more.
+
+You can also write your own, or get new ones from plugins.
 
 ----
 
