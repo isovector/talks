@@ -76,8 +76,6 @@ Motion.
 
 A motion moves you from one place to another.
 
-<!-- TODO(sandy): most of these have semantic names -->
-
 ----
 
 Right.
@@ -249,6 +247,7 @@ Unless there is an obvious subtitute, the backwards version is usually capitaliz
     <li><pre>F &larr; f</pre></li>
     <li><pre>? &larr; /</pre></li>
   </ul>
+
 ----
 
 Backwards word.
@@ -320,6 +319,8 @@ Learning more.
   <blockquote>:help motion</blockquote>
 
 for so many more.
+
+You can also write your own!
 
 ----
 
@@ -566,6 +567,8 @@ Learning more.
 
 for so many more.
 
+You can also write your own!
+
 ----
 
 Text Objects.
@@ -678,7 +681,319 @@ Learning more.
 
 for so many more.
 
-You can also write your own, or get new ones from plugins.
+You can also write your own!
+
+----
+
+Using the best operation is valuable.
+=====================================
+
+Why? Composition!
+
+----
+
+Repeat.
+=======
+
+.. raw:: html
+
+  <blockquote>.</blockquote>
+
+Perform the last operation again.
+
+----
+
+The wrong operation for the job.
+================================
+
+.. raw:: html
+
+  <pre class="buffer"><span class="cursor">f</span>ooBar fooBar</pre>
+
+  <blockquote>dtBiqux&uarr;</blockquote>
+  <pre class="buffer">qu<span class="cursor">x</span>Bar fooBar</pre>
+
+  <blockquote>w.</blockquote>
+  <pre class="buffer">quxBar qu<span class="cursor">x</span>fooBar</pre>
+
+----
+
+Doing it right.
+===============
+
+.. raw:: html
+
+  <pre class="buffer"><span class="cursor">f</span>ooBar fooBar</pre>
+
+  <blockquote>civqux&uarr;</blockquote>
+  <pre class="buffer">qu<span class="cursor">x</span>Bar fooBar</pre>
+
+  <blockquote>w.</blockquote>
+  <pre class="buffer">quxBar qu<span class="cursor">x</span>Bar</pre>
+
+----
+
+Spend 0% of your time in insert mode.
+=====================================
+
+Do exactly what you need in insert mode, and no more.
+
+----
+
+Develop the habit of pressing escape
+====================================
+
+every time you've finished a thought.
+=====================================
+
+----
+
+The do's and don'ts of Visual Mode.
+===================================
+
+----
+
+Don't.
+======
+
+(with some caveats)
+
+----
+
+Visual block mode.
+==================
+
+.. raw:: html
+
+  <pre class="buffer"><span class="cursor">d</span>ata Enum = Foo
+            | Bar
+            | Baz
+  </pre>
+  <blockquote>&#9393;f=l2j</blockquote>
+  <pre class="buffer"><span class="cursor">data Enum = </span>Foo
+  <span class="cursor">          | </span>Bar
+  <span class="cursor">          | </span>Baz
+  </pre>
+
+  <blockquote>x</blockquote>
+
+  <pre class="buffer"><span class="cursor">F</span>oo
+  Bar
+  Baz
+  </pre>
+
+----
+
+Visual block mode (cont).
+=========================
+
+.. raw:: html
+
+  <blockquote>gv</blockquote>
+
+  <pre class="buffer"><span class="cursor">Foo</span>
+  <span class="cursor">Bar</span>
+  <span class="cursor">Baz</span>
+  </pre>
+
+  <blockquote>I, &uarr;</blockquote>
+
+  <pre class="buffer"><span class="cursor">,</span> Foo
+  , Bar
+  , Baz
+  </pre>
+
+----
+
+Visual line mode.
+=================
+
+.. raw:: html
+
+  <pre class="buffer">import Data.Map
+  imp<span class="cursor">o</span>rt Data.List
+  import Control.Monad
+
+  -- don't touch me
+  </pre>
+
+  <blockquote>Vip</blockquote>
+
+  <pre class="buffer">
+  <span class="cursor">import Data.Map</span>
+  <span class="cursor">import Data.List</span>
+  <span class="cursor">import Control.Monad</span>
+
+  -- don't touch me
+  </pre>
+
+  <blockquote>:sort&crarr;</blockquote>
+
+  <pre class="buffer">
+  <span class="cursor">i</span>mport Control.Monad
+  import Data.List
+  import Data.Map
+
+  -- don't touch me
+  </pre>
+
+----
+
+Registers.
+==========
+
+**Registers** are generalizations of the copy/paste clipboard.
+
+They're "variables" you can stick text into.
+
+----
+
+Registers are named like this:
+
+.. raw:: html
+
+  <blockquote>"a</blockquote>
+  <blockquote>"b</blockquote>
+  <blockquote>"c</blockquote>
+
+There are lots of registers available!
+
+----
+
+They can be combined with operators:
+
+.. raw:: html
+
+  <blockquote>"r&#10803;</blockquote>
+
+----
+
+.. raw:: html
+
+  <pre class="buffer">three <span class="cursor">t</span>wo one</pre>
+  <blockquote>"bdaw</blockquote>
+  <pre class="buffer">three <span class="cursor">o</span>ne</pre>
+  <blockquote>"adaw</blockquote>
+  <pre class="buffer">thre<span class="cursor">e</span></pre>
+  <blockquote>0"aP"bp</blockquote>
+  <pre class="buffer"> onetwo<span class="cursor"> </span>three</pre>
+
+----
+
+Use registers to keep track of lots of pieces of text simultaneously!
+
+----
+
+There is an implicit, default register used if you do not specify one.
+
+.. raw:: html
+
+  <blockquote>""</blockquote>
+
+This is where autoyanked text goes.
+
+----
+
+Insert mode?
+============
+
+You can work with registers in insert mode by pressing.
+
+.. raw:: html
+
+  <blockquote>&#9389;</blockquote>
+
+----
+
+Learning more.
+==============
+
+.. raw:: html
+
+  <blockquote>:help registers</blockquote>
+
+for all of the magic registers (like automatic math evaluation!)
+
+----
+
+Record.
+=======
+
+.. raw:: html
+
+  <blockquote>q&#9187;</blockquote>
+
+  <p>Records your keystrokes and puts them into register &#9187;.</p>
+
+Press **q** to exit again.
+
+----
+
+What use is this?
+=================
+
+It's a code-to-data transformation.
+
+Make the edits you want, and export/reuse them!
+
+----
+
+Moving keystrokes into the buffer.
+==================================
+
+.. raw:: html
+
+  <pre class="buffer"><span class="cursor"> </span></pre>
+
+  <blockquote>qziHello world!&uarr;ddq</blockquote>
+  <pre class="buffer"><span class="cursor"> </span></pre>
+
+  <blockquote>"zp</blockquote>
+  <pre class="buffer">iHello world!&uarr;d<span class="cursor">d</span></pre>
+
+----
+
+This doesn't seem super useful.
+===============================
+
+(it's not, on its own)
+
+----
+
+Run macro.
+==========
+
+.. raw:: html
+
+  <blockquote>@&#9187;</blockquote>
+
+The inverse transformation! Run data as vim commands!
+
+----
+
+Better than alcoholism.
+=======================
+
+.. raw:: html
+
+  <pre class="buffer"><span class="cursor">9</span>9 bottles of beer on the wall!</pre>
+
+  <blockquote>qbyyp&#9395;q</blockquote>
+  <pre class="buffer">99 bottles of beer on the wall!
+  9<span class="cursor">8</span> bottles of beer on the wall!</pre>
+
+  <blockquote>98@b</blockquote>
+
+  <pre class="buffer">99 bottles of beer on the wall!
+  98 bottles of beer on the wall!
+  97 bottles of beer on the wall!
+  ...
+  1 bottles of beer on the wall!
+  <span class="cursor">0</span> bottles of beer on the wall!</pre>
+
+----
+
+Keep macros in mind when you're doing repetitive, mechanical yet non-trivial edits.
 
 ----
 

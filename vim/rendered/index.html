@@ -7,7 +7,7 @@
 <span class="nx">deleteToEndOfSubword</span><span class="p">()</span>
 <span class="nx">deleteToEndOfWord</span><span class="p">()</span>
 <span class="nx">deleteToNextWordBoundary</span><span class="p">()</span>
-<span class="nx">deleteToPreviousWordBoundary</span><span class="p">()</span></pre></div><div class="step step-level-1" step="7" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="11200" data-y="0" data-z="0"><h1 id="vim-is-a-language">Vim is a language.</h1><p>It has a small number of primitives that compose well together.</p></div><div class="step step-level-1" step="8" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="12800" data-y="0" data-z="0"><h1 id="motion">Motion.</h1><p>A motion moves you from one place to another.</p><p>&lt;!-- TODO(sandy): most of these have semantic names --&gt;</p></div><div class="step step-level-1" step="9" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="14400" data-y="0" data-z="0"><h1 id="right">Right.</h1><pre class="buffer"><span class="cursor">h</span>ello, my foxy friend</pre>
+<span class="nx">deleteToPreviousWordBoundary</span><span class="p">()</span></pre></div><div class="step step-level-1" step="7" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="11200" data-y="0" data-z="0"><h1 id="vim-is-a-language">Vim is a language.</h1><p>It has a small number of primitives that compose well together.</p></div><div class="step step-level-1" step="8" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="12800" data-y="0" data-z="0"><h1 id="motion">Motion.</h1><p>A motion moves you from one place to another.</p></div><div class="step step-level-1" step="9" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="14400" data-y="0" data-z="0"><h1 id="right">Right.</h1><pre class="buffer"><span class="cursor">h</span>ello, my foxy friend</pre>
 
 <div class="group">
 <blockquote>l</blockquote>
@@ -72,7 +72,7 @@
 </ul><p>Unless there is an obvious subtitute, the backwards version is usually capitalized.</p><ul>
   <li><pre>F &larr; f</pre></li>
   <li><pre>? &larr; /</pre></li>
-</ul><p>Explicit markup ends without a blank line; unexpected unindent.</p></div><div class="step step-level-1" step="20" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="32000" data-y="0" data-z="0"><h1 id="backwards-word">Backwards word.</h1><pre class="buffer">hello, my <span class="cursor">f</span>oxy friend</pre>
+</ul></div><div class="step step-level-1" step="20" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="32000" data-y="0" data-z="0"><h1 id="backwards-word">Backwards word.</h1><pre class="buffer">hello, my <span class="cursor">f</span>oxy friend</pre>
 
 <div class="group">
 <blockquote>b</blockquote>
@@ -87,7 +87,7 @@
 <div class="group">
 <blockquote>4fe</blockquote>
 <pre class="buffer">there are lots of '<span class="cursor">e</span>'s here</pre>
-</div></div><div class="step step-level-1" step="23" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="36800" data-y="0" data-z="0"><h1 id="unsolicited-motion-advice">Unsolicited motion advice.</h1><span class="cursive bigger">You are doing it wrong</span> if you ever:<ul><li>use the arrow keys for <em>anything</em>.</li><li>use hjkl to move around.</li></ul></div><div class="step step-level-1" step="24" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="38400" data-y="0" data-z="0"><span class="bigger">Get in the habit of using the most <span class="cursive">parsimonious</span> motion.</span></div><div class="step step-level-1" step="25" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="40000" data-y="0" data-z="0"><h1 id="parsi-motion-y">Parsi-motion-y.</h1></div><div class="step step-level-1" step="26" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="41600" data-y="0" data-z="0"><h1 id="learning-more">Learning more.</h1><blockquote>:help motion</blockquote><p>for so many more.</p></div><div class="step step-level-1" step="27" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="43200" data-y="0" data-z="0"><h1 id="motions-ain-t-everything">Motions ain't everything.</h1><p>We also have <strong>operators</strong>.</p></div><div class="step step-level-1" step="28" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="44800" data-y="0" data-z="0"><h1 id="operators">Operators.</h1><p>An operator is Vim's idea of a <em>targeted side-effect.</em></p><p>It's a verb!</p></div><div class="step step-level-1" step="29" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="46400" data-y="0" data-z="0"><h1 id="you-already-know-some">You already know some.</h1></div><div class="step step-level-1" step="30" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="48000" data-y="0" data-z="0"><h1 id="delete">Delete.</h1><blockquote>d&rarr;</blockquote><p>"Delete something."</p></div><div class="step step-level-1" step="31" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="49600" data-y="0" data-z="0"><h1 id="delete-something">Delete something?</h1><p>What is "something?"</p><h2 id="it-s-a-motion">It's a <strong>motion</strong>!</h2></div><div class="step step-level-1" step="32" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="51200" data-y="0" data-z="0"><pre class="buffer space"><span class="cursor">t</span>here are lots of 'e's here</pre>
+</div></div><div class="step step-level-1" step="23" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="36800" data-y="0" data-z="0"><h1 id="unsolicited-motion-advice">Unsolicited motion advice.</h1><span class="cursive bigger">You are doing it wrong</span> if you ever:<ul><li>use the arrow keys for <em>anything</em>.</li><li>use hjkl to move around.</li></ul></div><div class="step step-level-1" step="24" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="38400" data-y="0" data-z="0"><span class="bigger">Get in the habit of using the most <span class="cursive">parsimonious</span> motion.</span></div><div class="step step-level-1" step="25" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="40000" data-y="0" data-z="0"><h1 id="parsi-motion-y">Parsi-motion-y.</h1></div><div class="step step-level-1" step="26" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="41600" data-y="0" data-z="0"><h1 id="learning-more">Learning more.</h1><blockquote>:help motion</blockquote><p>for so many more.</p><p>You can also write your own!</p></div><div class="step step-level-1" step="27" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="43200" data-y="0" data-z="0"><h1 id="motions-ain-t-everything">Motions ain't everything.</h1><p>We also have <strong>operators</strong>.</p></div><div class="step step-level-1" step="28" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="44800" data-y="0" data-z="0"><h1 id="operators">Operators.</h1><p>An operator is Vim's idea of a <em>targeted side-effect.</em></p><p>It's a verb!</p></div><div class="step step-level-1" step="29" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="46400" data-y="0" data-z="0"><h1 id="you-already-know-some">You already know some.</h1></div><div class="step step-level-1" step="30" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="48000" data-y="0" data-z="0"><h1 id="delete">Delete.</h1><blockquote>d&rarr;</blockquote><p>"Delete something."</p></div><div class="step step-level-1" step="31" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="49600" data-y="0" data-z="0"><h1 id="delete-something">Delete something?</h1><p>What is "something?"</p><h2 id="it-s-a-motion">It's a <strong>motion</strong>!</h2></div><div class="step step-level-1" step="32" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="51200" data-y="0" data-z="0"><pre class="buffer space"><span class="cursor">t</span>here are lots of 'e's here</pre>
 
 <div class="group">
 <blockquote>w</blockquote>
@@ -155,7 +155,7 @@ return 0;
 
 <pre class="buffer space"><span class="cursor">i</span>nt blah() {
     return 0;
-}</pre><p>Doesn't work super well for Haskell, unfortunately.</p></div><div class="step step-level-1" step="47" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="75200" data-y="0" data-z="0"><h1 id="id2">Learning more.</h1><blockquote>:help operators</blockquote><p>for so many more.</p></div><div class="step step-level-1" step="48" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="76800" data-y="0" data-z="0"><h1 id="text-objects">Text Objects.</h1></div><div class="step step-level-1" step="49" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="78400" data-y="0" data-z="0"><p><strong>Text objects</strong> are somewhere between motions and filetype-specific syntax.</p></div><div class="step step-level-1" step="50" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="80000" data-y="0" data-z="0"><p>They let you describe things like:</p><ul><li>all text inside this HTML tag</li><li>the code at this level of indentation</li><li>one portion of a <em>snake_case_identifier</em></li></ul><p>A text object is always contiguous text.</p></div><div class="step step-level-1" step="51" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="81600" data-y="0" data-z="0"><h1 id="motions-vs-text-objects">Motions vs text objects.</h1><p>You can't <strong>move</strong> by a text object, but you can <strong>operate</strong> on one.</p></div><div class="step step-level-1" step="52" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="83200" data-y="0" data-z="0"><h1 id="an-argument-text-object">"An argument" text object.</h1><pre class="buffer space">mconcat [a, <span class="cursor">b</span>, c]</pre>
+}</pre><p>Doesn't work super well for Haskell, unfortunately.</p></div><div class="step step-level-1" step="47" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="75200" data-y="0" data-z="0"><h1 id="id2">Learning more.</h1><blockquote>:help operators</blockquote><p>for so many more.</p><p>You can also write your own!</p></div><div class="step step-level-1" step="48" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="76800" data-y="0" data-z="0"><h1 id="text-objects">Text Objects.</h1></div><div class="step step-level-1" step="49" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="78400" data-y="0" data-z="0"><p><strong>Text objects</strong> are somewhere between motions and filetype-specific syntax.</p></div><div class="step step-level-1" step="50" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="80000" data-y="0" data-z="0"><p>They let you describe things like:</p><ul><li>all text inside this HTML tag</li><li>the code at this level of indentation</li><li>one portion of a <em>snake_case_identifier</em></li></ul><p>A text object is always contiguous text.</p></div><div class="step step-level-1" step="51" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="81600" data-y="0" data-z="0"><h1 id="motions-vs-text-objects">Motions vs text objects.</h1><p>You can't <strong>move</strong> by a text object, but you can <strong>operate</strong> on one.</p></div><div class="step step-level-1" step="52" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="83200" data-y="0" data-z="0"><h1 id="an-argument-text-object">"An argument" text object.</h1><pre class="buffer space">mconcat [a, <span class="cursor">b</span>, c]</pre>
 
 <div class="group">
 <blockquote>&#10803;aa</blockquote>
@@ -195,4 +195,97 @@ return 0;
 <div class="group">
 <blockquote>daw</blockquote>
 <pre class="buffer">I will bring <span class="cursor">c</span>ookies</pre>
-</div></div><div class="step step-level-1" step="56" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="89600" data-y="0" data-z="0"><h1 id="id3">Learning more.</h1><blockquote>:help text-obj</blockquote><p>for so many more.</p><p>You can also write your own, or get new ones from plugins.</p></div><div class="step step-level-1" step="57" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="91200" data-y="0" data-z="0"><h1 id="thanks-for-listening">Thanks for listening!</h1><h1 id="questions">Questions?</h1></div></div><div id="hovercraft-help"><table><tr><th>Space</th><td>Forward</td></tr><tr><th>Right, Down, Page Down</th><td>Next slide</td></tr><tr><th>Left, Up, Page Up</th><td>Previous slide</td></tr><tr><th>P</th><td>Open presenter console</td></tr><tr><th>H</th><td>Toggle this help</td></tr></table></div><script type="text/javascript" src="js/impress.js"></script><script type="text/javascript" src="js/impressConsole.js"></script><script type="text/javascript" src="js/hovercraft.js"></script></body></html>
+</div></div><div class="step step-level-1" step="56" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="89600" data-y="0" data-z="0"><h1 id="id3">Learning more.</h1><blockquote>:help text-obj</blockquote><p>for so many more.</p><p>You can also write your own!</p></div><div class="step step-level-1" step="57" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="91200" data-y="0" data-z="0"><h1 id="using-the-best-operation-is-valuable">Using the best operation is valuable.</h1><p>Why? Composition!</p></div><div class="step step-level-1" step="58" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="92800" data-y="0" data-z="0"><h1 id="repeat">Repeat.</h1><blockquote>.</blockquote><p>Perform the last operation again.</p></div><div class="step step-level-1" step="59" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="94400" data-y="0" data-z="0"><h1 id="the-wrong-operation-for-the-job">The wrong operation for the job.</h1><pre class="buffer"><span class="cursor">f</span>ooBar fooBar</pre>
+
+<blockquote>dtBiqux&uarr;</blockquote>
+<pre class="buffer">qu<span class="cursor">x</span>Bar fooBar</pre>
+
+<blockquote>w.</blockquote>
+<pre class="buffer">quxBar qu<span class="cursor">x</span>fooBar</pre></div><div class="step step-level-1" step="60" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="96000" data-y="0" data-z="0"><h1 id="doing-it-right">Doing it right.</h1><pre class="buffer"><span class="cursor">f</span>ooBar fooBar</pre>
+
+<blockquote>civqux&uarr;</blockquote>
+<pre class="buffer">qu<span class="cursor">x</span>Bar fooBar</pre>
+
+<blockquote>w.</blockquote>
+<pre class="buffer">quxBar qu<span class="cursor">x</span>Bar</pre></div><div class="step step-level-1" step="61" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="97600" data-y="0" data-z="0"><h1 id="spend-0-of-your-time-in-insert-mode">Spend 0% of your time in insert mode.</h1><p>Do exactly what you need in insert mode, and no more.</p></div><div class="step step-level-1" step="62" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="99200" data-y="0" data-z="0"><h1 id="develop-the-habit-of-pressing-escape">Develop the habit of pressing escape</h1><h1 id="every-time-you-ve-finished-a-thought">every time you've finished a thought.</h1></div><div class="step step-level-1" step="63" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="100800" data-y="0" data-z="0"><h1 id="the-do-s-and-don-ts-of-visual-mode">The do's and don'ts of Visual Mode.</h1></div><div class="step step-level-1" step="64" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="102400" data-y="0" data-z="0"><h1 id="don-t">Don't.</h1><p>(with some caveats)</p></div><div class="step step-level-1" step="65" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="104000" data-y="0" data-z="0"><h1 id="visual-block-mode">Visual block mode.</h1><pre class="buffer"><span class="cursor">d</span>ata Enum = Foo
+          | Bar
+          | Baz
+</pre>
+<blockquote>&#9393;f=l2j</blockquote>
+<pre class="buffer"><span class="cursor">data Enum = </span>Foo
+<span class="cursor">          | </span>Bar
+<span class="cursor">          | </span>Baz
+</pre>
+
+<blockquote>x</blockquote>
+
+<pre class="buffer"><span class="cursor">F</span>oo
+Bar
+Baz
+</pre></div><div class="step step-level-1" step="66" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="105600" data-y="0" data-z="0"><h1 id="visual-block-mode-cont">Visual block mode (cont).</h1><blockquote>gv</blockquote>
+
+<pre class="buffer"><span class="cursor">Foo</span>
+<span class="cursor">Bar</span>
+<span class="cursor">Baz</span>
+</pre>
+
+<blockquote>I, &uarr;</blockquote>
+
+<pre class="buffer"><span class="cursor">,</span> Foo
+, Bar
+, Baz
+</pre></div><div class="step step-level-1" step="67" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="107200" data-y="0" data-z="0"><h1 id="visual-line-mode">Visual line mode.</h1><pre class="buffer">import Data.Map
+imp<span class="cursor">o</span>rt Data.List
+import Control.Monad
+
+-- don't touch me
+</pre>
+
+<blockquote>Vip</blockquote>
+
+<pre class="buffer">
+<span class="cursor">import Data.Map</span>
+<span class="cursor">import Data.List</span>
+<span class="cursor">import Control.Monad</span>
+
+-- don't touch me
+</pre>
+
+<blockquote>:sort&crarr;</blockquote>
+
+<pre class="buffer">
+<span class="cursor">i</span>mport Control.Monad
+import Data.List
+import Data.Map
+
+-- don't touch me
+</pre></div><div class="step step-level-1" step="68" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="108800" data-y="0" data-z="0"><h1 id="registers">Registers.</h1><p><strong>Registers</strong> are generalizations of the copy/paste clipboard.</p><p>They're "variables" you can stick text into.</p></div><div class="step step-level-1" step="69" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="110400" data-y="0" data-z="0"><p>Registers are named like this:</p><blockquote>"a</blockquote>
+<blockquote>"b</blockquote>
+<blockquote>"c</blockquote><p>There are lots of registers available!</p></div><div class="step step-level-1" step="70" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="112000" data-y="0" data-z="0"><p>They can be combined with operators:</p><blockquote>"r&#10803;</blockquote></div><div class="step step-level-1" step="71" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="113600" data-y="0" data-z="0"><pre class="buffer">three <span class="cursor">t</span>wo one</pre>
+<blockquote>"bdaw</blockquote>
+<pre class="buffer">three <span class="cursor">o</span>ne</pre>
+<blockquote>"adaw</blockquote>
+<pre class="buffer">thre<span class="cursor">e</span></pre>
+<blockquote>0"aP"bp</blockquote>
+<pre class="buffer"> onetwo<span class="cursor"> </span>three</pre></div><div class="step step-level-1" step="72" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="115200" data-y="0" data-z="0"><p>Use registers to keep track of lots of pieces of text simultaneously!</p></div><div class="step step-level-1" step="73" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="116800" data-y="0" data-z="0"><p>There is an implicit, default register used if you do not specify one.</p><blockquote>""</blockquote><p>This is where autoyanked text goes.</p></div><div class="step step-level-1" step="74" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="118400" data-y="0" data-z="0"><h1 id="insert-mode">Insert mode?</h1><p>You can work with registers in insert mode by pressing.</p><blockquote>&#9389;</blockquote></div><div class="step step-level-1" step="75" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="120000" data-y="0" data-z="0"><h1 id="id4">Learning more.</h1><blockquote>:help registers</blockquote><p>for all of the magic registers (like automatic math evaluation!)</p></div><div class="step step-level-1" step="76" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="121600" data-y="0" data-z="0"><h1 id="record">Record.</h1><blockquote>q&#9187;</blockquote>
+
+<p>Records your keystrokes and puts them into register &#9187;.</p><p>Press <strong>q</strong> to exit again.</p></div><div class="step step-level-1" step="77" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="123200" data-y="0" data-z="0"><h1 id="what-use-is-this">What use is this?</h1><p>It's a code-to-data transformation.</p><p>Make the edits you want, and export/reuse them!</p></div><div class="step step-level-1" step="78" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="124800" data-y="0" data-z="0"><h1 id="moving-keystrokes-into-the-buffer">Moving keystrokes into the buffer.</h1><pre class="buffer"><span class="cursor"> </span></pre>
+
+<blockquote>qziHello world!&uarr;ddq</blockquote>
+<pre class="buffer"><span class="cursor"> </span></pre>
+
+<blockquote>"zp</blockquote>
+<pre class="buffer">iHello world!&uarr;d<span class="cursor">d</span></pre></div><div class="step step-level-1" step="79" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="126400" data-y="0" data-z="0"><h1 id="this-doesn-t-seem-super-useful">This doesn't seem super useful.</h1><p>(it's not, on its own)</p></div><div class="step step-level-1" step="80" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="128000" data-y="0" data-z="0"><h1 id="run-macro">Run macro.</h1><blockquote>@&#9187;</blockquote><p>The inverse transformation! Run data as vim commands!</p></div><div class="step step-level-1" step="81" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="129600" data-y="0" data-z="0"><h1 id="better-than-alcoholism">Better than alcoholism.</h1><pre class="buffer"><span class="cursor">9</span>9 bottles of beer on the wall!</pre>
+
+<blockquote>qbyyp&#9395;q</blockquote>
+<pre class="buffer">99 bottles of beer on the wall!
+9<span class="cursor">8</span> bottles of beer on the wall!</pre>
+
+<blockquote>98@b</blockquote>
+
+<pre class="buffer">99 bottles of beer on the wall!
+98 bottles of beer on the wall!
+97 bottles of beer on the wall!
+...
+1 bottles of beer on the wall!
+<span class="cursor">0</span> bottles of beer on the wall!</pre></div><div class="step step-level-1" step="82" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="131200" data-y="0" data-z="0"><p>Keep macros in mind when you're doing repetitive, mechanical yet non-trivial edits.</p></div><div class="step step-level-1" step="83" data-rotate-x="0" data-rotate-y="0" data-rotate-z="0" data-scale="1" data-x="132800" data-y="0" data-z="0"><h1 id="thanks-for-listening">Thanks for listening!</h1><h1 id="questions">Questions?</h1></div></div><div id="hovercraft-help"><table><tr><th>Space</th><td>Forward</td></tr><tr><th>Right, Down, Page Down</th><td>Next slide</td></tr><tr><th>Left, Up, Page Up</th><td>Previous slide</td></tr><tr><th>P</th><td>Open presenter console</td></tr><tr><th>H</th><td>Toggle this help</td></tr></table></div><script type="text/javascript" src="js/impress.js"></script><script type="text/javascript" src="js/impressConsole.js"></script><script type="text/javascript" src="js/hovercraft.js"></script></body></html>
