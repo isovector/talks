@@ -4,6 +4,11 @@
 :css: fonts.css
 :css: presentation.css
 
+
+
+
+
+
 ----
 
 :id: title
@@ -17,68 +22,228 @@
 
 ----
 
-Some1 Like You: Dependent Types in Haskell
+.. code:: haskell
 
-- ****TODO**** lets only take in json NOT the payload
-- the context
-  - we want to build a data ingestion pipeline for events
-  - what's an event?
-    - purchase
-    - weather
-    - etc
-  - every event has a different data schema in terms of what information it makes sense to include
-  - as far as the ingestion is concerned, we don't care very much about this data
-    - we want to VERIFY IT IS CORRECT
-    - and then store it in a place that downstream services can retrieve
-  - we expect to have >1000 different kinds of events within the next few years as we slowly take over the world
-- the problem
-  - we need to build a REST api to ingest this data
-    - we'd like to provide meaningful errors and documentation for this api
-  - we need to provide a library to downstream consumers of this data
-- "maybe we can just use a big sum"
-  - data Event = Purchase X Y Z | Weather L T
-  - okay! cool. let's write a REST api for it
-  - "api" :> "events" :> "purchase" :> Post ?
-    - :<|> "api" :> "events" :> "weather" :> Post ?
-  - naively maybe ? should just be our Event
-  - this works! but now we don't have type safety.
-    - how do we parse it?
-    - try each branch and accept if any work well
-    - nice! except i can send you a weather payload to a purchase endpoint
-      - not the end of the world, but kinda lame
-    - what's worse is WHAT IF IT DOESN'T PARSE
-      - FromJSON instance isn't smart enough to know where the error occurred
-    - also we have to remember to update our endpoints every time we add a new one!
-  - that's pretty lame. what if we split up Event into constituent pieces
-    - data PurchasePayload
-      - data WeatherPayload
-      - data Event = Purchase PurchasePayload | Weather WeatherPayload
-    - now our endpoints can be type safe! but at the expense of we can't use the same code for each one
-      - maybe we can write some `ToEvent` typeclass that lifts Payloads into Events
-      - this works i guess! but it's boilerplate that's hard to automate
-    - now every time we add an event we need to add its datatype, this typeclass, update our API definition, our server and our client
-      - LAME
-  - the other thing to consider is what will our library code look like on the other side?
-    - how can people use this?
-    - downstream consumers are generally going to only want to look at events of a certain type
-    - Event -> Maybe (somepayload)
-      - we can use another typeclass to do this
-      - but notice since we're not actually using this anywhere, the compiler won't tell us if we forgot to write it
-        - only downstream consumers will notice and it'll be lame for them
-    - alternatively can export prisms for them to automate this bit
-- so the proposal is some sort of sumtype that we maintain with all of the possibilities, and then by-hand write code to lift in (and we can automate code to get out)
-  - but we still need to maybe we can somehow connectwrite by-hand API endpoints
-- this idea is the right approach, but it doesn't have enough goddamn language extensions
-- as it turns out, we don't really need to write this sum type!
-  - we can use a GADT and datakinds
-  - write an enum to describe our events
-    - data EventType = Purchase | Weather
-  - and if we use a data family, we can implement our payloads:
-    - data family Payload (e :: EventType)
-  - with a GADT
-    - data Event where MkEvent :: Payload (e :: EventType) -> Event
-  - oh shit we can't get it out anymore
-    - push the prj typeclass into our GADT so we can reason about it
+  data Event = WakeUp
+             | Eat Meal
+             | RockOut Song Duration
+
+  instance FromJSON Event
+
+
+
+----
+
+.. code:: haskell
+
+  type Req  = ReqBody '[JSON] Value
+  type Resp = Post    '[JSON] Response
+
+  type EventAPI = "api" :> "event" :>
+         ( "wake-up"  :> Req :> Resp
+      :<|> "eat"      :> Req :> Resp
+      :<|> "rock-out" :> Req :> Resp
+         )
+
+
+
+----
+
+.. code:: haskell
+
+  importEvent :: Value -> ExceptT ServantErr IO Response
+  importEvent blob =
+    case fromJSON blob of
+      Error   err -> throwError err
+      Success ev  -> pure \$ Response ev
+
+
+
+----
+
+.. code:: haskell
+
+  wakeUp  = importEvent
+  eat     = importEvent
+  rockOut = importEvent
+
+  eventServer :: Server EventAPI
+  eventServer = serve \$
+    wakeUp :<|> eat :<|> rockOut
+
+
+
+----
+
+.. code:: haskell
+
+  data PayloadWakeUp  = WakeUp
+  data PayloadEat     = Eat Meal
+  data PayloadRockOut = RockOut Song Duration
+
+  instance FromJSON PayloadWakeUp
+  instance FromJSON PayloadEat
+  instance FromJSON PayloadRockOut
+
+
+
+----
+
+.. raw:: html
+
+  <pre>
+
+  data Event = PayloadWakeUp  <span class="new">PayloadWakeUp</span>
+             | PayloadEat     <span class="new">PayloadEat</span>
+             | PayloadRockOut <span class="new">PayloadRockOut</span>
+
+  <span class="new">makePrisms ''Event</span>
+
+  </pre>
+
+
+----
+
+.. raw:: html
+
+  <pre>
+
+  importEvent :: <span class="new">FromJSON e</span>
+              <span class="new">=> Prism' Event e</span>
+              -> Value
+              -> ExceptT ServantErr IO Response
+  importEvent <span class="new">prism</span> blob =
+    case fromJSON blob of
+      Error   err -> throwError err
+      Success e   -> pure . Response \$ <span class="new">review prism</span> e
+
+  </pre>
+
+
+----
+
+.. raw:: html
+
+  <pre>
+
+  {-# LANGUAGE RankNTypes #-}
+
+  </pre>
+
+
+----
+
+.. raw:: html
+
+  <pre>
+
+  wakeUp  = importEvent <span class="new">_PayloadWakeUp</span>
+  eat     = importEvent <span class="new">_PayloadEat</span>
+  rockOut = importEvent <span class="new">_PayloadRockOut</span>
+
+  eventServer :: Server EventAPI
+  eventServer = serve \$
+    wakeUp :<|> eat :<|> rockOut
+
+  </pre>
+
+
+----
+
+.. code:: haskell
+
+  data EventType = WakeUp | Eat | RockOut
+
+
+
+----
+
+.. code:: haskell
+
+  data family Payload (e :: EventType)
+
+
+
+----
+
+.. raw:: html
+
+  <pre>
+
+  <span class="new">{-# LANGUAGE DataKinds    #-}</span>
+  {-# LANGUAGE RankNTypes   #-}
+  <span class="new">{-# LANGUAGE TypeFamilies #-}</span>
+
+  </pre>
+
+
+----
+
+.. raw:: html
+
+  <pre>
+
+  data <span class="new">instance Payload 'WakeUp</span>  = WakeUp
+  data <span class="new">instance Payload 'Eat</span>     = Eat Meal
+  data <span class="new">instance Payload 'RockOut</span> = RockOut Song Duration
+
+  instance FromJSON (Payload 'WakeUp)
+  instance FromJSON (Payload 'Eat)
+  instance FromJSON (Payload 'RockOut)
+
+  </pre>
+
+
+----
+
+.. code:: haskell
+
+  data Event where
+    MkEvent :: Payload (et :: EventType) -> Event
+
+
+
+----
+
+.. raw:: html
+
+  <pre>
+
+  importEvent :: <span class="new">forall (et :: EventType)</span>
+               . FromJSON (<span class="new">Payload</span> et)
+              -> <span class="new">Proxy et</span>
+              -> Value
+              -> ExceptT ServantErr IO Response
+
+  importEvent <span class="new">_</span> blob =
+    case fromJSON blob of
+      Error err ->
+        throwError err
+
+      Success (e <span class="new">:: Payload et</span>) ->
+        pure . Response \$ <span class="new">MkEvent</span> e
+
+  </pre>
+
+
+----
+
+.. raw:: html
+
+  <pre>
+
+  {-# LANGUAGE DataKinds           #-}
+  <span class="new">{-# LANGUAGE KindSigs            #-}</span>
+  {-# LANGUAGE RankNTypes          #-}
+  <span class="new">{-# LANGUAGE ScopedTypeVariables #-}</span>
+  {-# LANGUAGE TypeFamilies        #-}
+
+  </pre>
+
+
+----
+
+
 - now that we have unified all of this into one family, we have a chance of abstracting again
   - notice that we now have this EventType enum which exists at the term level
   - maybe we can turn our old REST apis into a capture instead of a manually unrolled enum?
@@ -122,7 +287,7 @@ Some1 Like You: Dependent Types in Haskell
   - dictFromJSON :: (FromJson ...) => Sing (a :: EventType) -> Dict (FromJSON (Payload a))
   - the idea being we can use constraints on dictFromJSON to prove that we have covered the total space of FromJSON over Payload (a :: k)
     - we return a Dict which is a runtime proof that we have the constraint needed, so we can implement our server in terms of this
-- withSomeSing capture $ \\(sa :: Sing (a :: EventType)) ->
+- withSomeSing capture \$ \\(sa :: Sing (a :: EventType)) ->
   - case dictFromJSON sa of
     - Dict -> parseAsEvent sa myJSON
 - sweet! our API implementation is done! we now get all of this for free!
@@ -168,7 +333,7 @@ Some1 Like You: Dependent Types in Haskell
     - toJSON (a, payload) = (toJSON a, toJSON payload)
   - and decoding:
     - etype <- fromJSON (fst pair)
-    - withSomeSing etype $ \\(s1 :: Sing (s :: EventType)) ->
+    - withSomeSing etype \$ \\(s1 :: Sing (s :: EventType)) ->
       - case eventDict :: Dict (FromJSON (Payload s)) of
         - Dict -> fromJSON (snd pair)
-  -
+
