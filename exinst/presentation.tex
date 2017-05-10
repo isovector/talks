@@ -6,7 +6,7 @@
 
 \newenvironment{hs}[1]{.. code:: haskell
 }{}
-\newenvironment{raw}[1]{.. raw:: html
+\newenvironment{hl}[1]{.. raw:: html
 
   <pre>}{
   </pre>
@@ -85,17 +85,17 @@
 
 ----
 
-\begin{raw}
+\begin{hl}
   data Event = PayloadWakeUp  \note{PayloadWakeUp}
              | PayloadEat     \note{PayloadEat}
              | PayloadRockOut \note{PayloadRockOut}
 
   \note{makePrisms ''Event}
-\end{raw}
+\end{hl}
 
 ----
 
-\begin{raw}
+\begin{hl}
   importEvent :: \note{FromJSON e}
               \note{=> Prism' Event e}
               -> Value
@@ -104,17 +104,17 @@
     case fromJSON blob of
       Error   err -> throwError err
       Success e   -> pure . Response \$ \note{review prism} e
-\end{raw}
+\end{hl}
 
 ----
 
-\begin{raw}
+\begin{hl}
   {-# LANGUAGE RankNTypes #-}
-\end{raw}
+\end{hl}
 
 ----
 
-\begin{raw}
+\begin{hl}
   wakeUp  = importEvent \note{_PayloadWakeUp}
   eat     = importEvent \note{_PayloadEat}
   rockOut = importEvent \note{_PayloadRockOut}
@@ -122,7 +122,7 @@
   eventServer :: Server EventAPI
   eventServer = \todo{notice there is no way to prove we have the right types here}{serve} \$
     wakeUp :<|> eat :<|> rockOut
-\end{raw}
+\end{hl}
 
 ----
 
@@ -138,15 +138,15 @@
 
 ----
 
-\begin{raw}
+\begin{hl}
   \note{{-# LANGUAGE DataKinds    #-}}
   {-# LANGUAGE RankNTypes   #-}
   \note{{-# LANGUAGE TypeFamilies #-}}
-\end{raw}
+\end{hl}
 
 ----
 
-\begin{raw}
+\begin{hl}
   data \note{instance Payload 'WakeUp}  = WakeUp
   data \note{instance Payload 'Eat}     = Eat Meal
   data \note{instance Payload 'RockOut} = RockOut Song Duration
@@ -154,7 +154,7 @@
   instance FromJSON (Payload 'WakeUp)
   instance FromJSON (Payload 'Eat)
   instance FromJSON (Payload 'RockOut)
-\end{raw}
+\end{hl}
 
 ----
 
@@ -165,7 +165,7 @@
 
 ----
 
-\begin{raw}
+\begin{hl}
   importEvent :: \note{forall (et :: EventType)}
                . FromJSON (\note{Payload} et)
               -> \note{Proxy et}
@@ -179,22 +179,22 @@
 
       Success (e \note{:: Payload et}) ->
         pure . Response \$ \note{MkEvent} e
-\end{raw}
+\end{hl}
 
 ----
 
-\begin{raw}
+\begin{hl}
   {-# LANGUAGE DataKinds           #-}
   \note{{-# LANGUAGE KindSigs            #-}}
   {-# LANGUAGE RankNTypes          #-}
   \note{{-# LANGUAGE ScopedTypeVariables #-}}
   {-# LANGUAGE TypeFamilies        #-}
-\end{raw}
+\end{hl}
 
 
 ----
 
-\code{
+\begin{hl}
   wakeUp  = importEvent \note{(Proxy @'WakeUp)}
   eat     = importEvent \note{(Proxy @'Eat)}
   rockOut = importEvent \note{(Proxy @'RockOut)}
@@ -202,32 +202,29 @@
   eventServer :: Server EventAPI
   eventServer = \todo{notice there is no way to prove we have the right types here}{serve} \$
     wakeUp :<|> eat :<|> rockOut
-}
+\end{hl}
 
 ----
 
 
-\code{
+\begin{hl}
   {-# LANGUAGE DataKinds           #-}
   {-# LANGUAGE KindSigs            #-}
   {-# LANGUAGE RankNTypes          #-}
   {-# LANGUAGE ScopedTypeVariables #-}
   \note{{-# LANGUAGE TypeApplications    #-}}
   {-# LANGUAGE TypeFamilies        #-}
-}
+\end{hl}
 
 ----
 
-
-----
-
-\code{
+\begin{hl}
   type Req  = ReqBody '[JSON] Value
   type Resp = Post    '[JSON] Response
 
   type EventAPI = "api" :> "event" :>
          \note{Capture "event-type" EventType :> Req :> Resp}
-}
+\end{hl}
 
 ----
 

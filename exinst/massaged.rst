@@ -232,13 +232,12 @@
 .. raw:: html
 
   <pre>
-
   wakeUp  = importEvent <span class="new">(Proxy @'WakeUp)</span>
   eat     = importEvent <span class="new">(Proxy @'Eat)</span>
   rockOut = importEvent <span class="new">(Proxy @'RockOut)</span>
 
   eventServer :: Server EventAPI
-  eventServer = serve \$
+  eventServer = serve $
     wakeUp :<|> eat :<|> rockOut
 
   </pre>
@@ -250,7 +249,6 @@
 .. raw:: html
 
   <pre>
-
   {-# LANGUAGE DataKinds           #-}
   {-# LANGUAGE KindSigs            #-}
   {-# LANGUAGE RankNTypes          #-}
@@ -263,13 +261,9 @@
 
 ----
 
-
-----
-
 .. raw:: html
 
   <pre>
-
   type Req  = ReqBody '[JSON] Value
   type Resp = Post    '[JSON] Response
 
