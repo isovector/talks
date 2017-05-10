@@ -9,6 +9,7 @@
 
 
 
+
 ----
 
 :id: title
@@ -55,7 +56,7 @@
   importEvent blob =
     case fromJSON blob of
       Error   err -> throwError err
-      Success ev  -> pure \$ Response ev
+      Success ev  -> pure $ Response ev
 
 
 
@@ -68,7 +69,7 @@
   rockOut = importEvent
 
   eventServer :: Server EventAPI
-  eventServer = serve \$
+  eventServer = serve $
     wakeUp :<|> eat :<|> rockOut
 
 
@@ -115,7 +116,7 @@
   importEvent <span class="new">prism</span> blob =
     case fromJSON blob of
       Error   err -> throwError err
-      Success e   -> pure . Response \$ <span class="new">review prism</span> e
+      Success e   -> pure . Response $ <span class="new">review prism</span> e
 
   </pre>
 
@@ -142,7 +143,7 @@
   rockOut = importEvent <span class="new">_PayloadRockOut</span>
 
   eventServer :: Server EventAPI
-  eventServer = serve \$
+  eventServer = serve $
     wakeUp :<|> eat :<|> rockOut
 
   </pre>
@@ -221,7 +222,7 @@
         throwError err
 
       Success (e <span class="new">:: Payload et</span>) ->
-        pure . Response \$ <span class="new">MkEvent</span> e
+        pure . Response $ <span class="new">MkEvent</span> e
 
   </pre>
 
@@ -287,7 +288,7 @@
   - dictFromJSON :: (FromJson ...) => Sing (a :: EventType) -> Dict (FromJSON (Payload a))
   - the idea being we can use constraints on dictFromJSON to prove that we have covered the total space of FromJSON over Payload (a :: k)
     - we return a Dict which is a runtime proof that we have the constraint needed, so we can implement our server in terms of this
-- withSomeSing capture \$ \\(sa :: Sing (a :: EventType)) ->
+- withSomeSing capture $ \\(sa :: Sing (a :: EventType)) ->
   - case dictFromJSON sa of
     - Dict -> parseAsEvent sa myJSON
 - sweet! our API implementation is done! we now get all of this for free!
@@ -333,7 +334,7 @@
     - toJSON (a, payload) = (toJSON a, toJSON payload)
   - and decoding:
     - etype <- fromJSON (fst pair)
-    - withSomeSing etype \$ \\(s1 :: Sing (s :: EventType)) ->
+    - withSomeSing etype $ \\(s1 :: Sing (s :: EventType)) ->
       - case eventDict :: Dict (FromJSON (Payload s)) of
         - Dict -> fromJSON (snd pair)
 

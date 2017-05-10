@@ -4,6 +4,7 @@
 :css: fonts.css
 :css: presentation.css
 
+\newcommand{\$}{\begin{verbatim}$\end{verbatim}}
 \newcommand{\todo}[2]{#2}
 \newcommand{\note}[1]{<span class="new">#1</span>}
 \newcommand{\hs}[1]{.. code:: haskell
@@ -68,7 +69,7 @@
   rockOut = importEvent
 
   eventServer :: Server EventAPI
-  eventServer = serve \todo{fix dollar signs}{\$}
+  eventServer = serve \$
     wakeUp :<|> eat :<|> rockOut
 }
 
