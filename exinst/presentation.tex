@@ -4,17 +4,16 @@
 :css: fonts.css
 :css: presentation.css
 
-\newcommand{\todo}[2]{#2}
-\newcommand{\note}[1]{<span class="new">#1</span>}
-\newcommand{\hs}[1]{.. code:: haskell
-#1
-}
-\newcommand{\code}[1]{.. raw:: html
+\newenvironment{hs}[1]{.. code:: haskell
+}{}
+\newenvironment{raw}[1]{.. raw:: html
 
-  <pre>
-#1
+  <pre>}{
   </pre>
 }
+\newcommand{\$}{\begin{verbatim}$\end{verbatim}}
+\newcommand{\todo}[2]{#2}
+\newcommand{\note}[1]{<span class="new">#1</span>}
 
 ----
 
@@ -29,17 +28,17 @@
 
 ----
 
-\hs{
+\begin{hs}
   data Event = WakeUp
              | Eat Meal
              | RockOut Song Duration
 
   instance FromJSON Event
-}
+\end{hs}
 
 ----
 
-\hs{
+\begin{hs}
   type Req  = ReqBody '[JSON] Value
   type Resp = Post    '[JSON] Response
 
@@ -48,33 +47,33 @@
       :<|> "eat"      :> Req :> Resp
       :<|> "rock-out" :> Req :> Resp
          )
-}
+\end{hs}
 
 ----
 
-\hs{
+\begin{hs}
   importEvent :: Value -> ExceptT ServantErr IO Response
   importEvent blob =
     case fromJSON blob of
       Error   err -> throwError err
       Success ev  -> pure \$ Response ev
-}
+\end{hs}
 
 ----
 
-\hs{
+\begin{hs}
   wakeUp  = importEvent
   eat     = importEvent
   rockOut = importEvent
 
   eventServer :: Server EventAPI
-  eventServer = serve \todo{fix dollar signs}{\$}
+  eventServer = serve \$
     wakeUp :<|> eat :<|> rockOut
-}
+\end{hs}
 
 ----
 
-\hs{
+\begin{hs}
   data PayloadWakeUp  = \todo{rename these so they dont clash with datakinds later}{WakeUp}
   data PayloadEat     = Eat Meal
   data PayloadRockOut = RockOut Song Duration
@@ -82,21 +81,21 @@
   instance FromJSON PayloadWakeUp
   instance FromJSON PayloadEat
   instance FromJSON PayloadRockOut
-}
+\end{hs}
 
 ----
 
-\code{
+\begin{raw}
   data Event = PayloadWakeUp  \note{PayloadWakeUp}
              | PayloadEat     \note{PayloadEat}
              | PayloadRockOut \note{PayloadRockOut}
 
   \note{makePrisms ''Event}
-}
+\end{raw}
 
 ----
 
-\code{
+\begin{raw}
   importEvent :: \note{FromJSON e}
               \note{=> Prism' Event e}
               -> Value
@@ -105,17 +104,17 @@
     case fromJSON blob of
       Error   err -> throwError err
       Success e   -> pure . Response \$ \note{review prism} e
-}
+\end{raw}
 
 ----
 
-\code{
+\begin{raw}
   {-# LANGUAGE RankNTypes #-}
-}
+\end{raw}
 
 ----
 
-\code{
+\begin{raw}
   wakeUp  = importEvent \note{_PayloadWakeUp}
   eat     = importEvent \note{_PayloadEat}
   rockOut = importEvent \note{_PayloadRockOut}
@@ -123,31 +122,31 @@
   eventServer :: Server EventAPI
   eventServer = \todo{notice there is no way to prove we have the right types here}{serve} \$
     wakeUp :<|> eat :<|> rockOut
-}
+\end{raw}
 
 ----
 
-\hs{
+\begin{hs}
   data EventType = WakeUp | Eat | RockOut
-}
+\end{hs}
 
 ----
 
-\hs{
+\begin{hs}
   data family Payload (e :: EventType)
-}
+\end{hs}
 
 ----
 
-\code{
+\begin{raw}
   \note{{-# LANGUAGE DataKinds    #-}}
   {-# LANGUAGE RankNTypes   #-}
   \note{{-# LANGUAGE TypeFamilies #-}}
-}
+\end{raw}
 
 ----
 
-\code{
+\begin{raw}
   data \note{instance Payload 'WakeUp}  = WakeUp
   data \note{instance Payload 'Eat}     = Eat Meal
   data \note{instance Payload 'RockOut} = RockOut Song Duration
@@ -155,18 +154,18 @@
   instance FromJSON (Payload 'WakeUp)
   instance FromJSON (Payload 'Eat)
   instance FromJSON (Payload 'RockOut)
-}
+\end{raw}
 
 ----
 
-\hs{
+\begin{hs}
   data Event where
     MkEvent :: Payload (et :: EventType) -> Event
-}
+\end{hs}
 
 ----
 
-\code{
+\begin{raw}
   importEvent :: \note{forall (et :: EventType)}
                . FromJSON (\note{Payload} et)
               -> \note{Proxy et}
@@ -180,17 +179,18 @@
 
       Success (e \note{:: Payload et}) ->
         pure . Response \$ \note{MkEvent} e
-}
+\end{raw}
 
 ----
 
-\code{
+\begin{raw}
   {-# LANGUAGE DataKinds           #-}
   \note{{-# LANGUAGE KindSigs            #-}}
   {-# LANGUAGE RankNTypes          #-}
   \note{{-# LANGUAGE ScopedTypeVariables #-}}
   {-# LANGUAGE TypeFamilies        #-}
-}
+\end{raw}
+
 
 ----
 

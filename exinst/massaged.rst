@@ -9,6 +9,7 @@
 
 
 
+
 ----
 
 :id: title
@@ -31,7 +32,6 @@
   instance FromJSON Event
 
 
-
 ----
 
 .. code:: haskell
@@ -46,7 +46,6 @@
          )
 
 
-
 ----
 
 .. code:: haskell
@@ -55,8 +54,7 @@
   importEvent blob =
     case fromJSON blob of
       Error   err -> throwError err
-      Success ev  -> pure \$ Response ev
-
+      Success ev  -> pure $ Response ev
 
 
 ----
@@ -68,9 +66,8 @@
   rockOut = importEvent
 
   eventServer :: Server EventAPI
-  eventServer = serve \$
+  eventServer = serve $
     wakeUp :<|> eat :<|> rockOut
-
 
 
 ----
@@ -86,13 +83,11 @@
   instance FromJSON PayloadRockOut
 
 
-
 ----
 
 .. raw:: html
 
   <pre>
-
   data Event = PayloadWakeUp  <span class="new">PayloadWakeUp</span>
              | PayloadEat     <span class="new">PayloadEat</span>
              | PayloadRockOut <span class="new">PayloadRockOut</span>
@@ -107,7 +102,6 @@
 .. raw:: html
 
   <pre>
-
   importEvent :: <span class="new">FromJSON e</span>
               <span class="new">=> Prism' Event e</span>
               -> Value
@@ -115,7 +109,7 @@
   importEvent <span class="new">prism</span> blob =
     case fromJSON blob of
       Error   err -> throwError err
-      Success e   -> pure . Response \$ <span class="new">review prism</span> e
+      Success e   -> pure . Response $ <span class="new">review prism</span> e
 
   </pre>
 
@@ -125,7 +119,6 @@
 .. raw:: html
 
   <pre>
-
   {-# LANGUAGE RankNTypes #-}
 
   </pre>
@@ -136,13 +129,12 @@
 .. raw:: html
 
   <pre>
-
   wakeUp  = importEvent <span class="new">_PayloadWakeUp</span>
   eat     = importEvent <span class="new">_PayloadEat</span>
   rockOut = importEvent <span class="new">_PayloadRockOut</span>
 
   eventServer :: Server EventAPI
-  eventServer = serve \$
+  eventServer = serve $
     wakeUp :<|> eat :<|> rockOut
 
   </pre>
@@ -155,7 +147,6 @@
   data EventType = WakeUp | Eat | RockOut
 
 
-
 ----
 
 .. code:: haskell
@@ -163,13 +154,11 @@
   data family Payload (e :: EventType)
 
 
-
 ----
 
 .. raw:: html
 
   <pre>
-
   <span class="new">{-# LANGUAGE DataKinds    #-}</span>
   {-# LANGUAGE RankNTypes   #-}
   <span class="new">{-# LANGUAGE TypeFamilies #-}</span>
@@ -182,7 +171,6 @@
 .. raw:: html
 
   <pre>
-
   data <span class="new">instance Payload 'WakeUp</span>  = WakeUp
   data <span class="new">instance Payload 'Eat</span>     = Eat Meal
   data <span class="new">instance Payload 'RockOut</span> = RockOut Song Duration
@@ -202,13 +190,11 @@
     MkEvent :: Payload (et :: EventType) -> Event
 
 
-
 ----
 
 .. raw:: html
 
   <pre>
-
   importEvent :: <span class="new">forall (et :: EventType)</span>
                . FromJSON (<span class="new">Payload</span> et)
               -> <span class="new">Proxy et</span>
@@ -221,7 +207,7 @@
         throwError err
 
       Success (e <span class="new">:: Payload et</span>) ->
-        pure . Response \$ <span class="new">MkEvent</span> e
+        pure . Response $ <span class="new">MkEvent</span> e
 
   </pre>
 
@@ -231,7 +217,6 @@
 .. raw:: html
 
   <pre>
-
   {-# LANGUAGE DataKinds           #-}
   <span class="new">{-# LANGUAGE KindSigs            #-}</span>
   {-# LANGUAGE RankNTypes          #-}
@@ -239,6 +224,7 @@
   {-# LANGUAGE TypeFamilies        #-}
 
   </pre>
+
 
 
 ----
@@ -341,7 +327,7 @@
   - dictFromJSON :: (FromJson ...) => Sing (a :: EventType) -> Dict (FromJSON (Payload a))
   - the idea being we can use constraints on dictFromJSON to prove that we have covered the total space of FromJSON over Payload (a :: k)
     - we return a Dict which is a runtime proof that we have the constraint needed, so we can implement our server in terms of this
-- withSomeSing capture \$ \\(sa :: Sing (a :: EventType)) ->
+- withSomeSing capture $ \\(sa :: Sing (a :: EventType)) ->
   - case dictFromJSON sa of
     - Dict -> parseAsEvent sa myJSON
 - sweet! our API implementation is done! we now get all of this for free!
@@ -387,7 +373,7 @@
     - toJSON (a, payload) = (toJSON a, toJSON payload)
   - and decoding:
     - etype <- fromJSON (fst pair)
-    - withSomeSing etype \$ \\(s1 :: Sing (s :: EventType)) ->
+    - withSomeSing etype $ \\(s1 :: Sing (s :: EventType)) ->
       - case eventDict :: Dict (FromJSON (Payload s)) of
         - Dict -> fromJSON (snd pair)
 
