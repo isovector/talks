@@ -32,7 +32,6 @@
   instance FromJSON Event
 
 
-
 ----
 
 .. code:: haskell
@@ -47,7 +46,6 @@
          )
 
 
-
 ----
 
 .. code:: haskell
@@ -57,7 +55,6 @@
     case fromJSON blob of
       Error   err -> throwError err
       Success ev  -> pure $ Response ev
-
 
 
 ----
@@ -73,7 +70,6 @@
     wakeUp :<|> eat :<|> rockOut
 
 
-
 ----
 
 .. code:: haskell
@@ -87,13 +83,11 @@
   instance FromJSON PayloadRockOut
 
 
-
 ----
 
 .. raw:: html
 
   <pre>
-
   data Event = PayloadWakeUp  <span class="new">PayloadWakeUp</span>
              | PayloadEat     <span class="new">PayloadEat</span>
              | PayloadRockOut <span class="new">PayloadRockOut</span>
@@ -108,7 +102,6 @@
 .. raw:: html
 
   <pre>
-
   importEvent :: <span class="new">FromJSON e</span>
               <span class="new">=> Prism' Event e</span>
               -> Value
@@ -126,7 +119,6 @@
 .. raw:: html
 
   <pre>
-
   {-# LANGUAGE RankNTypes #-}
 
   </pre>
@@ -137,7 +129,6 @@
 .. raw:: html
 
   <pre>
-
   wakeUp  = importEvent <span class="new">_PayloadWakeUp</span>
   eat     = importEvent <span class="new">_PayloadEat</span>
   rockOut = importEvent <span class="new">_PayloadRockOut</span>
@@ -156,7 +147,6 @@
   data EventType = WakeUp | Eat | RockOut
 
 
-
 ----
 
 .. code:: haskell
@@ -164,13 +154,11 @@
   data family Payload (e :: EventType)
 
 
-
 ----
 
 .. raw:: html
 
   <pre>
-
   <span class="new">{-# LANGUAGE DataKinds    #-}</span>
   {-# LANGUAGE RankNTypes   #-}
   <span class="new">{-# LANGUAGE TypeFamilies #-}</span>
@@ -183,7 +171,6 @@
 .. raw:: html
 
   <pre>
-
   data <span class="new">instance Payload 'WakeUp</span>  = WakeUp
   data <span class="new">instance Payload 'Eat</span>     = Eat Meal
   data <span class="new">instance Payload 'RockOut</span> = RockOut Song Duration
@@ -203,13 +190,11 @@
     MkEvent :: Payload (et :: EventType) -> Event
 
 
-
 ----
 
 .. raw:: html
 
   <pre>
-
   importEvent :: <span class="new">forall (et :: EventType)</span>
                . FromJSON (<span class="new">Payload</span> et)
               -> <span class="new">Proxy et</span>
@@ -232,7 +217,6 @@
 .. raw:: html
 
   <pre>
-
   {-# LANGUAGE DataKinds           #-}
   <span class="new">{-# LANGUAGE KindSigs            #-}</span>
   {-# LANGUAGE RankNTypes          #-}
@@ -240,6 +224,7 @@
   {-# LANGUAGE TypeFamilies        #-}
 
   </pre>
+
 
 
 ----
