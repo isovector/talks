@@ -243,6 +243,60 @@
 
 ----
 
+.. raw:: html
+
+  <pre>
+
+  wakeUp  = importEvent <span class="new">(Proxy @'WakeUp)</span>
+  eat     = importEvent <span class="new">(Proxy @'Eat)</span>
+  rockOut = importEvent <span class="new">(Proxy @'RockOut)</span>
+
+  eventServer :: Server EventAPI
+  eventServer = serve \$
+    wakeUp :<|> eat :<|> rockOut
+
+  </pre>
+
+
+----
+
+
+.. raw:: html
+
+  <pre>
+
+  {-# LANGUAGE DataKinds           #-}
+  {-# LANGUAGE KindSigs            #-}
+  {-# LANGUAGE RankNTypes          #-}
+  {-# LANGUAGE ScopedTypeVariables #-}
+  <span class="new">{-# LANGUAGE TypeApplications    #-}</span>
+  {-# LANGUAGE TypeFamilies        #-}
+
+  </pre>
+
+
+----
+
+
+----
+
+.. raw:: html
+
+  <pre>
+
+  type Req  = ReqBody '[JSON] Value
+  type Resp = Post    '[JSON] Response
+
+  type EventAPI = "api" :> "event" :>
+         <span class="new">Capture "event-type" EventType :> Req :> Resp</span>
+
+  </pre>
+
+
+----
+
+
+
 
 - now that we have unified all of this into one family, we have a chance of abstracting again
   - notice that we now have this EventType enum which exists at the term level

@@ -194,6 +194,45 @@
 
 ----
 
+\code{
+  wakeUp  = importEvent \note{(Proxy @'WakeUp)}
+  eat     = importEvent \note{(Proxy @'Eat)}
+  rockOut = importEvent \note{(Proxy @'RockOut)}
+
+  eventServer :: Server EventAPI
+  eventServer = \todo{notice there is no way to prove we have the right types here}{serve} \$
+    wakeUp :<|> eat :<|> rockOut
+}
+
+----
+
+
+\code{
+  {-# LANGUAGE DataKinds           #-}
+  {-# LANGUAGE KindSigs            #-}
+  {-# LANGUAGE RankNTypes          #-}
+  {-# LANGUAGE ScopedTypeVariables #-}
+  \note{{-# LANGUAGE TypeApplications    #-}}
+  {-# LANGUAGE TypeFamilies        #-}
+}
+
+----
+
+
+----
+
+\code{
+  type Req  = ReqBody '[JSON] Value
+  type Resp = Post    '[JSON] Response
+
+  type EventAPI = "api" :> "event" :>
+         \note{Capture "event-type" EventType :> Req :> Resp}
+}
+
+----
+
+
+
 
 - now that we have unified all of this into one family, we have a chance of abstracting again
   - notice that we now have this EventType enum which exists at the term level
