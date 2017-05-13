@@ -11,11 +11,14 @@
 
 
 
+
 ----
 
 :id: title
 
 .. raw:: html
+
+  <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML'></script>
 
   <h1>Some1 Like You</h1>
   <h2>Dependent Pairs in Haskell</h2>
@@ -295,6 +298,23 @@
 
 ----
 
+- OR CAN IT
+  - introducing singletons
+  - singletons allow us to bridge the gap between types and terms
+  - think about the type ()
+    - if you know what type it is, you know the value of it
+    - if you have a value of (), you know what type it is
+    - we have an injective function from these terms to types
+      - because it's injective we can go both directions
+  - the problem is that dealing with these things at the term level is hard -- since they all have different types
+    - we can existentalize over them to let us fit them into something at the term level
+    - data SomeSing k where SomeSing :: (Sing a :: k) -> SomeSing k
+  - singletons also give us the ability to lift in and out of singletons
+    - toSing :: SingKind k => k -> SomeSing k
+    - fromSing :: Sing (a :: k) -> k
+
+----
+
 .. raw:: html
 
   <pre>
@@ -365,8 +385,8 @@ add lambda case
               -> ExceptT ServantErr IO Response
 
   importEvent etype blob =
-    withSomeSing etype $ \ (<span class="new">set</span> :: Sing et) ->
-      <span class="new">case dictFromJSON set of</span>
+    withSomeSing etype $ \ (<span class="new">setype</span> :: Sing et) ->
+      <span class="new">case dictFromJSON setype of</span>
         <span class="new">Dict -></span>
           case fromJSON blob of
             Error err ->
@@ -391,50 +411,15 @@ add lambda case
 
 ----
 
-IT WORKS OMG
-
-----
-
-
-
-
-- OR CAN IT
-  - introducing singletons
-  - singletons allow us to bridge the gap between types and terms
-  - think about the type ()
-    - if you know what type it is, you know the value of it
-    - if you have a value of (), you know what type it is
-    - we have an injective function from these terms to types
-      - because it's injective we can go both directions
-  - the problem is that dealing with these things at the term level is hard -- since they all have different types
-    - we can existentalize over them to let us fit them into something at the term level
-    - data SomeSing k where SomeSing :: (Sing a :: k) -> SomeSing k
-  - singletons also give us the ability to lift in and out of singletons
-    - toSing :: SingKind k => k -> SomeSing k
-    - fromSing :: Sing (a :: k) -> k
-- with this under our belts, we can bridge the gap into our Event GADT
-  - take our capture, toSing it, and then
-  - parseAsEvent
-    - :: Sing (a :: EventType) -> JSON.Value -> Either ParseError Event
-  - uh oh! we don't have a way of parsing EventTypes!
-    - FromJSON (Payload a) =>
-- what has this bought us? we don't need our own giant sum for every eventtype we'll ever want
-  - the compiler can write it for us!
-  - also we don't need to write our own injections into this type
-  - ALSO we now have a single endpoint for all of our APIS!
-    - very cool
-- or do we?
-  - shit. we can't prove that FromJSON (Payload a) constraint
-- unfortunately there's not really any place to get this constraint from.
-  - you might think we can stick it into our Event constructor, but that's too late -- we're still trying to build an Event!
-  - we could prove it if we monomorphized all of our server, but then we're back to having to write glue code every time we add a new event
-
 - sweet! our API implementation is done! we now get all of this for free!
   - we can add new event types to our enum
   - but we'll get a exhaustiveness error on dictFromJSON
   - which it can only be fixed if we add a data instance for the new type
   - and then everything works.
   - COMPILER DRIVEN CODING!
+
+----
+
 - but what about the other part of the problem?
   - we also want to serialize these things and stick them into a pipe for downstream consumers
   - for simplicity we'll encode them as json
@@ -442,37 +427,138 @@ IT WORKS OMG
     - we need a ToJSON Event, duh
     - well if we want any chance of encoding it, we're going to need to know that ToJSON is total over the sum space
     - also need dictToJSON
-  - but you'll notice that besides the constraints, this function is exactly the same implementation as dictFromJSON
-    - maybe we can lift this!
-      - dictEvent :: (c ...) => Sing (a :: EventType) -> Dict (c (Payload a))
-    - this means that we can get a dictionary for any c (Payload a) so long as c is total over Payload a!
-      - fucking sweet!
-  - okay great! so armed with this, we might be able to write a ToJSON instance for an Event
-    - as a first attempt, we can just call out to the internal type's ToJSON
-    - this typechecks. but does it work?
-    - let's find out. let's write the fromjson instance
-      - well obviously we'll need a dictEvent :: Dict (FromJSON (Payload a))
-      - but we can't get it!! because we don't have a SomeSing EventType to dispatch on to find the right instance
-      - we've goofed! we've thrown away information. we don't know what type is inside our Event!
-- back to the drawing board.
-  - the thing is, when we constructed this thing, we (necessarily) knew what type it was
-    - but we didn't store that information anywhere!
-    - idiots
-  - data Event where MkEvent :: Sing (a :: EventType) -> Payload a -> Event
-  - this is known as a Sigma type AKA a dependent pair
-    - in the literature it is
-    - Sigma_{a :: EventType} Payload(a)
-      - with values
-      - (a :: EventType, payload :: Payload a) :: Sigma_{a :: EventType} Payload(a)
-    - if you remember your highschool algebra, expanding this out algebraically is
-    - Payload(a1) + Payload(a2) + Payload(a3) etc
-    - aka THIS IS ACTUALLY THE EXACT SUM TYPE WE WERE BUILDING BY HAND BEFORE
-  - what has this bought us? well now we can deconstruct our sigma type to get the correct EventType out, use that to dispatch dictEvent, and we can get our FromJSON instance
-  - our encoding logic thus looks like this:
-    - toJSON (a, payload) = (toJSON a, toJSON payload)
-  - and decoding:
-    - etype <- fromJSON (fst pair)
-    - withSomeSing etype $ \\(s1 :: Sing (s :: EventType)) ->
-      - case eventDict :: Dict (FromJSON (Payload s)) of
-        - Dict -> fromJSON (snd pair)
+
+----
+
+.. code:: haskell
+
+  dictToJSON :: ( ToJSON (Payload 'WakeUp)
+                , ToJSON (Payload 'Eat)
+                , ToJSON (Payload 'RockOut)
+                )
+             => Sing (a :: EventType)
+             -> Dict (FromJSON (Payload a))
+
+  dictFromJSON = \case
+    SWakeUp  -> Dict
+    SEat     -> Dict
+    SRockOut -> Dict
+
+
+----
+
+- but you'll notice that besides the constraints, this function is exactly the same implementation as dictFromJSON
+  - maybe we can lift this!
+    - dictEvent :: (c ...) => Sing (a :: EventType) -> Dict (c (Payload a))
+  - this means that we can get a dictionary for any c (Payload a) so long as c is total over Payload a!
+    - fucking sweet!
+
+----
+
+.. raw:: html
+
+  <pre>
+  dictPayload :: ( <span class="new">c</span> (Payload 'WakeUp)
+                 , <span class="new">c</span> (Payload 'Eat)
+                 , <span class="new">c</span> (Payload 'RockOut)
+                 )
+              => Sing (a :: EventType)
+              -> Dict (<span class="new">c</span> (Payload a))
+
+  dictPayload = \case
+    SWakeUp  -> Dict
+    SEat     -> Dict
+    SRockOut -> Dict
+
+  </pre>
+
+
+----
+
+.. code:: haskell
+
+  instance ToJSON Event where
+    toJSON (MkEvent payload) = toJSON payload
+
+
+----
+
+No instance `toJSON` for `Payload a`
+
+Uh oh, we don't have a singleton to actually use to get our `dictPayload`!
+
+Scrub lords!
+
+----
+
+.. raw:: html
+
+  <pre>
+  data Event where
+    MkEvent :: <span class="new">Sing (et :: EventType)</span>
+            -> Payload et
+            -> Event
+
+  </pre>
+
+
+----
+
+.. code:: haskell
+
+  instance ToJSON Event where
+
+    toJSON (MkEvent (setype :: Sing etype) payload) =
+      case dictPayload @ToJSON setype of
+        Dict ->
+          object [ "type"    .= fromSing setype
+                 , "payload" .= payload
+                 ]
+
+
+----
+
+- this is known as a Sigma type AKA a dependent pair
+  - in the literature it is
+  - Sigma_{a :: EventType} Payload(a)
+    - with values
+    - (a :: EventType, payload :: Payload a) :: Sigma_{a :: EventType} Payload(a)
+  - if you remember your highschool algebra, expanding this out algebraically is
+  - Payload(a1) + Payload(a2) + Payload(a3) etc
+  - aka THIS IS ACTUALLY THE EXACT SUM TYPE WE WERE BUILDING BY HAND BEFORE
+
+----
+
+$$\\sum_\\text{a :: EventType} \\text{Payload}(a)$$
+
+----
+
+.. code:: haskell
+
+  data Some1 (f :: k -> *) where
+    Some1 :: Sing (a :: k) -> f a -> Some1 f
+
+
+----
+
+Add polykinds.
+
+----
+
+.. raw:: html
+
+  <pre>
+  type Event = <span class="new">Some1 Payload</span>
+
+  </pre>
+
+
+----
+
+.. code:: haskell
+
+  class Dict1 (c :: ok -> Constraint)
+              (f :: ik -> ok) where
+    dict1 :: Sing (a :: ik) -> Dict (c (f a))
+
 
