@@ -10,6 +10,7 @@
 
 
 
+
 ----
 
 :id: title
@@ -245,7 +246,6 @@
 
 ----
 
-
 .. raw:: html
 
   <pre>
@@ -275,18 +275,129 @@
 
 ----
 
+.. raw:: html
+
+  <pre>
+  importEvent :: <span class="new">EventType</span>
+              -> Value
+              -> ExceptT ServantErr IO Response
+
+  importEvent <span class="wat">et</span> blob =
+    case fromJSON blob of
+      Error err ->
+        throwError err
+
+      Success (e :: Payload <span class="wat">et</span>) ->
+        pure . Response $ MkEvent e
+
+  </pre>
+
+
+----
+
+.. raw:: html
+
+  <pre>
+  importEvent :: EventType
+              -> Value
+              -> ExceptT ServantErr IO Response
+
+  importEvent etype blob =
+    <span class="new">withSomeSing etype $ \ (_ :: Sing et) -></span>
+      case fromJSON blob of
+        Error err ->
+          throwError err
+
+        Success (e :: Payload et) ->
+          pure . Response $ MkEvent e
+
+  </pre>
+
+
+----
+
+No instance `FromJSON` for type `et`.
+
+----
+
+.. code:: haskell
+
+  dictFromJSON :: ( FromJSON (Payload 'WakeUp)
+                  , FromJSON (Payload 'Eat)
+                  , FromJSON (Payload 'RockOut)
+                  )
+               => Sing (a :: EventType)
+               -> Dict (FromJSON (Payload a))
+
+
+----
+
+add constraint kind
+
+----
+
+.. code:: haskell
+
+  dictFromJSON :: ( FromJSON (Payload 'WakeUp)
+                  , FromJSON (Payload 'Eat)
+                  , FromJSON (Payload 'RockOut)
+                  )
+               => Sing (a :: EventType)
+               -> Dict (FromJSON (Payload a))
+
+  dictFromJSON = \case
+    SWakeUp  -> Dict
+    SEat     -> Dict
+    SRockOut -> Dict
+
+
+----
+
+add lambda case
+
+----
+
+.. raw:: html
+
+  <pre>
+  importEvent :: EventType
+              -> Value
+              -> ExceptT ServantErr IO Response
+
+  importEvent etype blob =
+    withSomeSing etype $ \ (<span class="new">set</span> :: Sing et) ->
+      <span class="new">case dictFromJSON set of</span>
+        <span class="new">Dict -></span>
+          case fromJSON blob of
+            Error err ->
+              throwError err
+
+            Success (e :: Payload et) ->
+              pure . Response $ MkEvent e
+
+  </pre>
+
+
+----
+
+.. raw:: html
+
+  <pre>
+  eventServer :: Server EventAPI
+  eventServer = serve <span class="new">importEvent</span>
+
+  </pre>
+
+
+----
+
+IT WORKS OMG
+
+----
 
 
 
-- now that we have unified all of this into one family, we have a chance of abstracting again
-  - notice that we now have this EventType enum which exists at the term level
-  - maybe we can turn our old REST apis into a capture instead of a manually unrolled enum?
-  - "api" :> "events" :> Capture EventType :> Post ?
-    - again what should this ? be?
-    - ideally we'd like it to be (Payload e) where e is the EventType
-    - but the problem is that e comes from the USER at RUNTIME
-    - but the compiler wants to know what e is at compile time
-  - obviously this can't work
+
 - OR CAN IT
   - introducing singletons
   - singletons allow us to bridge the gap between types and terms
@@ -317,13 +428,7 @@
 - unfortunately there's not really any place to get this constraint from.
   - you might think we can stick it into our Event constructor, but that's too late -- we're still trying to build an Event!
   - we could prove it if we monomorphized all of our server, but then we're back to having to write glue code every time we add a new event
-- are we stuck? not quite yet! i got the following trick from my brilliant coworker renzo
-  - dictFromJSON :: (FromJson ...) => Sing (a :: EventType) -> Dict (FromJSON (Payload a))
-  - the idea being we can use constraints on dictFromJSON to prove that we have covered the total space of FromJSON over Payload (a :: k)
-    - we return a Dict which is a runtime proof that we have the constraint needed, so we can implement our server in terms of this
-- withSomeSing capture $ \\(sa :: Sing (a :: EventType)) ->
-  - case dictFromJSON sa of
-    - Dict -> parseAsEvent sa myJSON
+
 - sweet! our API implementation is done! we now get all of this for free!
   - we can add new event types to our enum
   - but we'll get a exhaustiveness error on dictFromJSON

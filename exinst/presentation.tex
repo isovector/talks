@@ -6,7 +6,7 @@
 
 \newenvironment{hs}[1]{.. code:: haskell
 }{}
-\newenvironment{hl}[1]{.. raw:: html
+\newenvironment{raw}[1]{.. raw:: html
 
   <pre>}{
   </pre>
@@ -14,6 +14,7 @@
 \newcommand{\$}{\begin{verbatim}$\end{verbatim}}
 \newcommand{\todo}[2]{#2}
 \newcommand{\note}[1]{<span class="new">#1</span>}
+\newcommand{\wat}[1]{<span class="wat">#1</span>}
 
 ----
 
@@ -85,17 +86,17 @@
 
 ----
 
-\begin{hl}
+\begin{raw}
   data Event = PayloadWakeUp  \note{PayloadWakeUp}
              | PayloadEat     \note{PayloadEat}
              | PayloadRockOut \note{PayloadRockOut}
 
   \note{makePrisms ''Event}
-\end{hl}
+\end{raw}
 
 ----
 
-\begin{hl}
+\begin{raw}
   importEvent :: \note{FromJSON e}
               \note{=> Prism' Event e}
               -> Value
@@ -104,17 +105,17 @@
     case fromJSON blob of
       Error   err -> throwError err
       Success e   -> pure . Response \$ \note{review prism} e
-\end{hl}
+\end{raw}
 
 ----
 
-\begin{hl}
+\begin{raw}
   {-# LANGUAGE RankNTypes #-}
-\end{hl}
+\end{raw}
 
 ----
 
-\begin{hl}
+\begin{raw}
   wakeUp  = importEvent \note{_PayloadWakeUp}
   eat     = importEvent \note{_PayloadEat}
   rockOut = importEvent \note{_PayloadRockOut}
@@ -122,7 +123,7 @@
   eventServer :: Server EventAPI
   eventServer = \todo{notice there is no way to prove we have the right types here}{serve} \$
     wakeUp :<|> eat :<|> rockOut
-\end{hl}
+\end{raw}
 
 ----
 
@@ -138,15 +139,15 @@
 
 ----
 
-\begin{hl}
+\begin{raw}
   \note{{-# LANGUAGE DataKinds    #-}}
   {-# LANGUAGE RankNTypes   #-}
   \note{{-# LANGUAGE TypeFamilies #-}}
-\end{hl}
+\end{raw}
 
 ----
 
-\begin{hl}
+\begin{raw}
   data \note{instance Payload 'WakeUp}  = WakeUp
   data \note{instance Payload 'Eat}     = Eat Meal
   data \note{instance Payload 'RockOut} = RockOut Song Duration
@@ -154,7 +155,7 @@
   instance FromJSON (Payload 'WakeUp)
   instance FromJSON (Payload 'Eat)
   instance FromJSON (Payload 'RockOut)
-\end{hl}
+\end{raw}
 
 ----
 
@@ -165,7 +166,7 @@
 
 ----
 
-\begin{hl}
+\begin{raw}
   importEvent :: \note{forall (et :: EventType)}
                . FromJSON (\note{Payload} et)
               -> \note{Proxy et}
@@ -179,22 +180,22 @@
 
       Success (e \note{:: Payload et}) ->
         pure . Response \$ \note{MkEvent} e
-\end{hl}
+\end{raw}
 
 ----
 
-\begin{hl}
+\begin{raw}
   {-# LANGUAGE DataKinds           #-}
   \note{{-# LANGUAGE KindSigs            #-}}
   {-# LANGUAGE RankNTypes          #-}
   \note{{-# LANGUAGE ScopedTypeVariables #-}}
   {-# LANGUAGE TypeFamilies        #-}
-\end{hl}
+\end{raw}
 
 
 ----
 
-\begin{hl}
+\begin{raw}
   wakeUp  = importEvent \note{(Proxy @'WakeUp)}
   eat     = importEvent \note{(Proxy @'Eat)}
   rockOut = importEvent \note{(Proxy @'RockOut)}
@@ -202,44 +203,136 @@
   eventServer :: Server EventAPI
   eventServer = \todo{notice there is no way to prove we have the right types here}{serve} \$
     wakeUp :<|> eat :<|> rockOut
-\end{hl}
+\end{raw}
 
 ----
 
-
-\begin{hl}
+\begin{raw}
   {-# LANGUAGE DataKinds           #-}
   {-# LANGUAGE KindSigs            #-}
   {-# LANGUAGE RankNTypes          #-}
   {-# LANGUAGE ScopedTypeVariables #-}
   \note{{-# LANGUAGE TypeApplications    #-}}
   {-# LANGUAGE TypeFamilies        #-}
-\end{hl}
+\end{raw}
 
 ----
 
-\begin{hl}
+\begin{raw}
   type Req  = ReqBody '[JSON] Value
   type Resp = Post    '[JSON] Response
 
   type EventAPI = "api" :> "event" :>
          \note{Capture "event-type" EventType :> Req :> Resp}
-\end{hl}
+\end{raw}
+
+----
+
+\begin{raw}
+  importEvent :: \note{EventType}
+              -> Value
+              -> ExceptT ServantErr IO Response
+
+  importEvent \wat{et} blob =
+    case fromJSON blob of
+      Error err ->
+        throwError err
+
+      Success (e :: Payload \wat{et}) ->
+        pure . Response \$ MkEvent e
+\end{raw}
+
+----
+
+\begin{raw}
+  importEvent :: EventType
+              -> Value
+              -> ExceptT ServantErr IO Response
+
+  importEvent etype blob =
+    \note{withSomeSing etype \$ \ (_ :: Sing et) ->}
+      case fromJSON blob of
+        Error err ->
+          throwError err
+
+        Success (e :: Payload et) ->
+          pure . Response \$ MkEvent e
+\end{raw}
+
+----
+
+No instance `FromJSON` for type `et`.
+
+----
+
+\begin{hs}
+  dictFromJSON :: ( FromJSON (Payload 'WakeUp)
+                  , FromJSON (Payload 'Eat)
+                  , FromJSON (Payload 'RockOut)
+                  )
+               => Sing (a :: EventType)
+               -> Dict (FromJSON (Payload a))
+\end{hs}
+
+----
+
+add constraint kind
+
+----
+
+\begin{hs}
+  dictFromJSON :: ( FromJSON (Payload 'WakeUp)
+                  , FromJSON (Payload 'Eat)
+                  , FromJSON (Payload 'RockOut)
+                  )
+               => Sing (a :: EventType)
+               -> Dict (FromJSON (Payload a))
+
+  dictFromJSON = \case
+    SWakeUp  -> Dict
+    SEat     -> Dict
+    SRockOut -> Dict
+\end{hs}
+
+----
+
+add lambda case
+
+----
+
+\begin{raw}
+  importEvent :: EventType
+              -> Value
+              -> ExceptT ServantErr IO Response
+
+  importEvent etype blob =
+    withSomeSing etype \$ \ (\note{set} :: Sing et) ->
+      \note{case dictFromJSON set of}
+        \note{Dict ->}
+          case fromJSON blob of
+            Error err ->
+              throwError err
+
+            Success (e :: Payload et) ->
+              pure . Response \$ MkEvent e
+\end{raw}
+
+----
+
+\begin{raw}
+  eventServer :: Server EventAPI
+  eventServer = serve \note{importEvent}
+\end{raw}
+
+----
+
+IT WORKS OMG
 
 ----
 
 
 
 
-- now that we have unified all of this into one family, we have a chance of abstracting again
-  - notice that we now have this EventType enum which exists at the term level
-  - maybe we can turn our old REST apis into a capture instead of a manually unrolled enum?
-  - "api" :> "events" :> Capture EventType :> Post ?
-    - again what should this ? be?
-    - ideally we'd like it to be (Payload e) where e is the EventType
-    - but the problem is that e comes from the USER at RUNTIME
-    - but the compiler wants to know what e is at compile time
-  - obviously this can't work
 - OR CAN IT
   - introducing singletons
   - singletons allow us to bridge the gap between types and terms
@@ -270,13 +363,7 @@
 - unfortunately there's not really any place to get this constraint from.
   - you might think we can stick it into our Event constructor, but that's too late -- we're still trying to build an Event!
   - we could prove it if we monomorphized all of our server, but then we're back to having to write glue code every time we add a new event
-- are we stuck? not quite yet! i got the following trick from my brilliant coworker renzo
-  - dictFromJSON :: (FromJson ...) => Sing (a :: EventType) -> Dict (FromJSON (Payload a))
-  - the idea being we can use constraints on dictFromJSON to prove that we have covered the total space of FromJSON over Payload (a :: k)
-    - we return a Dict which is a runtime proof that we have the constraint needed, so we can implement our server in terms of this
-- withSomeSing capture \$ \\(sa :: Sing (a :: EventType)) ->
-  - case dictFromJSON sa of
-    - Dict -> parseAsEvent sa myJSON
+
 - sweet! our API implementation is done! we now get all of this for free!
   - we can add new event types to our enum
   - but we'll get a exhaustiveness error on dictFromJSON
