@@ -21,6 +21,7 @@
 
 
 
+
 ----
 
 :id: title
@@ -397,7 +398,14 @@ We can do better!
 
 Generating the API definition automatically would remove a lot more boilerplate.
 
+The EventType now exists at the value level.
+
+We might have a chance!
+
 ----
+
+API changes.
+============
 
 .. raw:: html
 
@@ -405,13 +413,18 @@ Generating the API definition automatically would remove a lot more boilerplate.
   type Req  = ReqBody '[JSON] Value
   type Resp = Post    '[JSON] Response
 
-  type EventAPI = "api" :> "event" :>
-         <span class="new">Capture "event-type" EventType :> Req :> Resp</span>
+  type EventAPI =
+    "api" :>
+      "event" :>
+        <span class="new">Capture "event-type" EventType</span> :> Req :> Resp
 
   </pre>
 
 
 ----
+
+Too clever for our own good.
+============================
 
 .. raw:: html
 
@@ -420,7 +433,7 @@ Generating the API definition automatically would remove a lot more boilerplate.
               -> Value
               -> ExceptT ServantErr IO Response
 
-  importEvent et blob =
+  importEvent <span class="new">et</span> blob =
     case fromJSON blob of
       Error err ->
         throwM err
@@ -436,7 +449,7 @@ Generating the API definition automatically would remove a lot more boilerplate.
 A brief interlude.
 ==================
 
-This turns out to be a problem with a solution.
+On singletons.
 
 ----
 
@@ -499,14 +512,15 @@ Unfortunately, not the same types as provided by DataKinds.
 
 ----
 
+It doesn't have to be so bad!
+=============================
+
 .. code:: haskell
 
-  {-# LANGUAGE TemplateHaskell #-}
-
-  $(singletons [d|
-      data Bool = True
-                | False
-      |])
+  singletons [d|
+    data Bool = True
+              | False
+    |]
 
 
 ----
@@ -514,6 +528,9 @@ Unfortunately, not the same types as provided by DataKinds.
 
 
 
+
+Lots to keep in mind.
+=====================
 
 .. raw:: html
 
@@ -532,11 +549,11 @@ Not just for Bools!
 
 .. code:: haskell
 
-  $(singletons [d|
-      data EventType = WakeUp
-                     | Eat
-                     | RockOut
-      |])
+  singletons [d|
+    data EventType = WakeUp
+                   | Eat
+                   | RockOut
+    |]
 
 
 ----
@@ -554,6 +571,9 @@ Not just for Bools!
 
 ----
 
+A helper function.
+==================
+
 .. raw:: html
 
   <pre class="highlight code haskell">
@@ -569,6 +589,8 @@ Not just for Bools!
 
 Back to our regularly scheduled talk.
 =====================================
+
+Armed with this knowledge, we can lift our EventType value into the type system!
 
 ----
 
@@ -593,44 +615,64 @@ Back to our regularly scheduled talk.
 
 ----
 
-No instance `FromJSON` for type `et`.
+It doesn't work.
+================
+
+.. raw:: html
+
+  <pre class="error">
+  No instance for (FromJSON (Payload <span class="type">et</span>))
+    arising from a use of `fromJSON'
+    </pre>
+
 
 ----
 
-.. code:: haskell
+Stupid compiler.
+================
 
-  dictFromJSON :: ( FromJSON (Payload 'WakeUp)
-                  , FromJSON (Payload 'Eat)
-                  , FromJSON (Payload 'RockOut)
+*We* know that `FromJSON` is total over `Payload`.
+
+But how can we prove it?
+
+----
+
+If it's too hard, prove it at the term level.
+=============================================
+
+.. raw:: html
+
+  <pre class="highlight code haskell">
+  dictFromJSON :: ( <span class="kt">FromJSON</span> (<span class="kt">Payload</span> '<span class="type">WakeUp</span>)
+                  , <span class="kt">FromJSON</span> (<span class="kt">Payload</span> '<span class="type">Eat</span>)
+                  , <span class="kt">FromJSON</span> (<span class="kt">Payload</span> '<span class="type">RockOut</span>)
                   )
-               => Sing (a :: EventType)
-               -> Dict (FromJSON (Payload a))
+               => <span class="kt">Sing</span> (<span class="type">a</span> :: <span class="kind">EventType</span>)
+               -> <span class="kt">Dict</span> (<span class="kt">FromJSON</span> (<span class="kt">Payload</span> <span class="type">a</span>))
 
+  </pre>
+
+
+A `Dict c` is a proof that we have the constraint `c`.
 
 ----
 
-add constraint kind
+.. raw:: html
 
-----
-
-.. code:: haskell
-
-  dictFromJSON :: ( FromJSON (Payload 'WakeUp)
-                  , FromJSON (Payload 'Eat)
-                  , FromJSON (Payload 'RockOut)
+  <pre class="highlight code haskell">
+  dictFromJSON :: ( <span class="kt">FromJSON</span> (<span class="kt">Payload</span> '<span class="type">WakeUp</span>)
+                  , <span class="kt">FromJSON</span> (<span class="kt">Payload</span> '<span class="type">Eat</span>)
+                  , <span class="kt">FromJSON</span> (<span class="kt">Payload</span> '<span class="type">RockOut</span>)
                   )
-               => Sing (a :: EventType)
-               -> Dict (FromJSON (Payload a))
+               => <span class="kt">Sing</span> (<span class="type">a</span> :: <span class="kind">EventType</span>)
+               -> <span class="kt">Dict</span> (<span class="kt">FromJSON</span> (<span class="kt">Payload</span> <span class="type">a</span>))
+  dictFromJSON s = <span class="kc">case</span> s <span class="kc">of</span>
+    <span class="kt">SWakeUp</span>  -> <span class="kt">Dict</span>
+    <span class="kt">SEat</span>     -> <span class="kt">Dict</span>
+    <span class="kt">SRockOut</span> -> <span class="kt">Dict</span>
 
-  dictFromJSON = \case
-    SWakeUp  -> Dict
-    SEat     -> Dict
-    SRockOut -> Dict
+  </pre>
 
-
-----
-
-add lambda case
 
 ----
 
@@ -657,6 +699,9 @@ add lambda case
 
 ----
 
+So groovy.
+==========
+
 .. raw:: html
 
   <pre>
@@ -668,67 +713,79 @@ add lambda case
 
 ----
 
-- sweet! our API implementation is done! we now get all of this for free!
-  - we can add new event types to our enum
-  - but we'll get a exhaustiveness error on dictFromJSON
-  - which it can only be fixed if we add a data instance for the new type
-  - and then everything works.
-  - COMPILER DRIVEN CODING!
+Compiler driven coding.
+=======================
+
+It is now impossible to incorrectly hook up a new EventType:
+
+* Exhaustiveness checking of dictFromJSON ensures we made a new payload type and gave it a ToJSON instance.
+
+* The API definitions and server handlers write themselves.
 
 ----
 
-- but what about the other part of the problem?
-  - we also want to serialize these things and stick them into a pipe for downstream consumers
-  - for simplicity we'll encode them as json
-  - assume we have some `Value -> IO ()` pipe function that sends things downstream. how can we call this function?
-    - we need a ToJSON Event, duh
-    - well if we want any chance of encoding it, we're going to need to know that ToJSON is total over the sum space
-    - also need dictToJSON
+The other half of the problem.
+==============================
+
+We also want to serialize these new events into a single pipe for downstream consumption.
+
+For simplicitly we'll also use JSON going downstream.
 
 ----
 
-.. code:: haskell
+We know the drill.
+==================
 
-  dictToJSON :: ( ToJSON (Payload 'WakeUp)
-                , ToJSON (Payload 'Eat)
-                , ToJSON (Payload 'RockOut)
+.. raw:: html
+
+  <pre class="highlight code haskell">
+  dictToJSON :: ( <span class="kt">ToJSON</span> (<span class="kt">Payload</span> '<span class="type">WakeUp</span>)
+                , <span class="kt">ToJSON</span> (<span class="kt">Payload</span> '<span class="type">Eat</span>)
+                , <span class="kt">ToJSON</span> (<span class="kt">Payload</span> '<span class="type">RockOut</span>)
                 )
-             => Sing (a :: EventType)
-             -> Dict (ToJSON (Payload a))
+             => <span class="kt">Sing</span> (<span class="type">a</span> :: <span class="kind">EventType</span>)
+             -> <span class="kt">Dict</span> (<span class="kt">ToJSON</span> (<span class="kt">Payload</span> <span class="type">a</span>))
+  dictToJSON s = <span class="kc">case</span> s <span class="kc">of</span>
+    <span class="kt">SWakeUp</span>  -> <span class="kt">Dict</span>
+    <span class="kt">SEat</span>     -> <span class="kt">Dict</span>
+    <span class="kt">SRockOut</span> -> <span class="kt">Dict</span>
 
-  dictToJSON = \case
-    SWakeUp  -> Dict
-    SEat     -> Dict
-    SRockOut -> Dict
+  </pre>
 
 
 ----
 
-- but you'll notice that besides the constraints, this function is exactly the same implementation as dictFromJSON
-  - maybe we can lift this!
-    - dictEvent :: (c ...) => Sing (a :: EventType) -> Dict (c (Payload a))
-  - this means that we can get a dictionary for any c (Payload a) so long as c is total over Payload a!
-    - fucking sweet!
+We can do better!
+=================
+
+Besides the constraints under consideration, `dictToJSON` is identical to `dictFromJSON`.
 
 ----
 
 .. raw:: html
 
   <pre>
+  <span class="new">{-# LANGUAGE ConstraintKinds #-}</span>
+
   dictPayload :: ( <span class="new">c</span> (Payload '<span class="type">WakeUp</span>)
                  , <span class="new">c</span> (Payload '<span class="type">Eat</span>)
                  , <span class="new">c</span> (Payload '<span class="type">RockOut</span>)
                  )
               => Sing (<span class="type">a</span> :: <span class="kind">EventType</span>)
               -> Dict (<span class="new">c</span> (Payload <span class="type">a</span>))
-
-  dictPayload = \case
+  dictPayload s = case s of
     SWakeUp  -> Dict
     SEat     -> Dict
     SRockOut -> Dict
 
   </pre>
 
+
+We can now lift *any* constraint that is total over `Payload`.
+
+----
+
+Let's use it to implement ToJSON over Events.
 
 ----
 
@@ -740,13 +797,32 @@ add lambda case
 
 ----
 
-No instance `toJSON` for `Payload a`
+It doesn't work.
+================
 
-Uh oh, we don't have a singleton to actually use to get our `dictPayload`!
+.. raw:: html
 
-Scrub lords!
+  <pre class="error">
+  No instance for (ToJSON (Payload <span class="type">et</span>))
+    arising from a use of `toJSON'
+    </pre>
+
+
+Oh yeah. It doesn't lift automatically.
 
 ----
+
+We need a singleton to get the Dict.
+====================================
+
+But we don't have one.
+
+But we used to!
+
+----
+
+Save that singleton.
+====================
 
 .. raw:: html
 
@@ -764,8 +840,7 @@ Scrub lords!
 .. code:: haskell
 
   instance ToJSON Event where
-
-    toJSON (MkEvent (setype :: Sing etype) payload) =
+    toJSON (MkEvent setype payload) =
       case dictPayload @ToJSON setype of
         Dict ->
           object [ "type"    .= fromSing setype
@@ -773,11 +848,32 @@ Scrub lords!
                  ]
 
 
+We can write a similar `FromJSON` instance.
+
 ----
+
+We're done!
+===========
+
+But what can we take away?
+
+----
+
+We didn't invent the Event type.
+================================
+
+In the literature, the combination of a value and a type that *depends* on that type is known as a **dependent pair**.
+
+We can write the type of a dependent pair like this:
+
+
 
 $$\\sum_\\text{a :: EventType} \\text{Payload}(a)$$
 
 ----
+
+Highschool algebra.
+===================
 
 $$\\sum_\\text{a :: EventType} \\text{Payload}(a) = \\text{Payload}(a_1) + \\text{Payload}(a_2) + \\cdots + \\text{Payload}(a_n)$$
 
@@ -788,10 +884,12 @@ Look familiar?
 
 .. code:: haskell
 
-  data Event = PayloadWakeUp  (Payload WakeUp)
-             | PayloadEat     (Payload Eat)
-             | PayloadRockOut (Payload RockOut)
+  data Event = EventWakeUp  (Payload WakeUp)
+             | EventEat     (Payload Eat)
+             | EventRockOut (Payload RockOut)
 
+
+This type is perfectly captured by the dependent pair.
 
 ----
 
@@ -800,19 +898,28 @@ More generally.
 
 $$(a, b) :: \\sum_\\text{a :: A} \\text{F}(a)$$
 
-----
 
-.. code:: haskell
 
-  data Some1 (f :: k -> *) where
-    Some1 :: Sing (a :: k) -> f a -> Some1 f
-
+We can encode this directly in Haskell.
 
 ----
 
-Add polykinds.
+Namesake of the talk.
+=====================
+
+.. raw:: html
+
+  <pre class="highlight code haskell">
+  <span class="kc">data</span> <span class="kt">Some1</span> (f :: <span class="kind">k</span> -> <span class="kind">Type</span>) <span class="kc">where</span>
+    <span class="kt">Some1</span> :: <span class="kt">Sing</span> (<span class="type">a</span> :: <span class="kind">k</span>) -> f <span class="type">a</span> -> <span class="kt">Some1</span> f
+
+  </pre>
+
 
 ----
+
+Specializing.
+=============
 
 .. raw:: html
 
@@ -824,10 +931,37 @@ Add polykinds.
 
 ----
 
-.. code:: haskell
+But that's not all.
+===================
 
-  class Dict1 (c :: ok -> Constraint)
-              (f :: ik -> ok) where
-    dict1 :: Sing (a :: ik) -> Dict (c (f a))
+We can generalize our `dictPayload` function as well:
 
+.. raw:: html
+
+  <pre class="highlight code haskell">
+  <span class="kc">class</span> <span class="kt">Dict1</span> (c :: <span class="kind">output</span> -> <span class="kind">Constraint</span>)
+              (f :: <span class="kind">input</span>  -> <span class="kind">output</span>) <span class="kc">where</span>
+    dict1 :: <span class="kt">Sing</span> (<span class="type">a</span> :: <span class="kind">input</span>) -> <span class="kt">Dict</span> (c (f a))
+
+  </pre>
+
+
+----
+
+It comes pre-assembled.
+=======================
+
+All of this machinery has already been built for you!
+
+https://hackage.haskell.org/package/exinst
+
+It also provides instances lifting Dict1 over Some1, as well as tons of other goodies.
+
+----
+
+Thanks for listening!
+=====================
+
+Questions?
+==========
 

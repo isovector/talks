@@ -111,3 +111,7 @@ td {
   padding-right: 1.3em;
 }
 
+.error {
+  padding: 1em;
+  border: 5px dashed red;
+}

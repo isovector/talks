@@ -18,6 +18,10 @@
   <pre>}{
   </pre>
 }
+\newenvironment{error}{.. raw:: html
+
+  <pre class="error">}{    </pre>
+}
 \newenvironment{custom}{.. raw:: html
 
   <pre class="highlight code haskell">}{
@@ -365,24 +369,36 @@ We can do better!
 
 Generating the API definition automatically would remove a lot more boilerplate.
 
+The EventType now exists at the value level.
+
+We might have a chance!
+
 ----
+
+API changes.
+============
 
 \begin{raw}
   type Req  = ReqBody '[JSON] Value
   type Resp = Post    '[JSON] Response
 
-  type EventAPI = "api" :> "event" :>
-         \note{Capture "event-type" EventType :> Req :> Resp}
+  type EventAPI =
+    "api" :>
+      "event" :>
+        \note{Capture "event-type" EventType} :> Req :> Resp
 \end{raw}
 
 ----
+
+Too clever for our own good.
+============================
 
 \begin{raw}
   importEvent :: \note{EventType}
               -> Value
               -> ExceptT ServantErr IO Response
 
-  importEvent et blob =
+  importEvent \note{et} blob =
     case fromJSON blob of
       Error err ->
         throwM err
@@ -396,7 +412,7 @@ Generating the API definition automatically would remove a lot more boilerplate.
 A brief interlude.
 ==================
 
-This turns out to be a problem with a solution.
+On singletons.
 
 ----
 
@@ -450,13 +466,14 @@ Unfortunately, not the same types as provided by DataKinds.
 
 ----
 
-\begin{hs}
-  {-# LANGUAGE TemplateHaskell #-}
+It doesn't have to be so bad!
+=============================
 
-  \$(singletons [d|
-      data Bool = True
-                | False
-      |])
+\begin{hs}
+  singletons [d|
+    data Bool = True
+              | False
+    |]
 \end{hs}
 
 ----
@@ -464,6 +481,9 @@ Unfortunately, not the same types as provided by DataKinds.
 \newcommand{\singhead}{<thead>\sing{Value}{Type}{Singleton}{Singleton Type}{Existential Type}</thead>}
 \newcommand{\sing}[5]{<tr><td>#1</td><td>#2</td><td>#3</td><td>#4</td><td>#5</td></tr>}
 \newcommand{\singb}[2]{\sing{\b{\syn{kt}{#1}}}{\b{\syn{kt}{#2}}}{\b{\syn{kt}{S#1}}}{\b{Sing '\type{#1}}}{\b{SomeSing \kind{#2}}}}
+
+Lots to keep in mind.
+=====================
 
 \begin{table}
   \singhead
@@ -477,11 +497,11 @@ Not just for Bools!
 ===================
 
 \begin{hs}
-  \$(singletons [d|
-      data EventType = WakeUp
-                     | Eat
-                     | RockOut
-      |])
+  singletons [d|
+    data EventType = WakeUp
+                   | Eat
+                   | RockOut
+    |]
 \end{hs}
 
 ----
@@ -495,6 +515,9 @@ Not just for Bools!
 
 ----
 
+A helper function.
+==================
+
 \begin{custom}
   withSomeSing :: \syn{kt}{SingKind} \kind{k}
                => k
@@ -506,6 +529,8 @@ Not just for Bools!
 
 Back to our regularly scheduled talk.
 =====================================
+
+Armed with this knowledge, we can lift our EventType value into the type system!
 
 ----
 
@@ -526,42 +551,53 @@ Back to our regularly scheduled talk.
 
 ----
 
-No instance `FromJSON` for type `et`.
+It doesn't work.
+================
+
+\begin{error}
+  No instance for (FromJSON (Payload \type{et}))
+    arising from a use of `fromJSON'
+\end{error}
 
 ----
 
-\begin{hs}
-  dictFromJSON :: ( FromJSON (Payload 'WakeUp)
-                  , FromJSON (Payload 'Eat)
-                  , FromJSON (Payload 'RockOut)
+Stupid compiler.
+================
+
+*We* know that `FromJSON` is total over `Payload`.
+
+But how can we prove it?
+
+----
+
+If it's too hard, prove it at the term level.
+=============================================
+
+\begin{custom}
+  dictFromJSON :: ( \syn{kt}{FromJSON} (\syn{kt}{Payload} '\type{WakeUp})
+                  , \syn{kt}{FromJSON} (\syn{kt}{Payload} '\type{Eat})
+                  , \syn{kt}{FromJSON} (\syn{kt}{Payload} '\type{RockOut})
                   )
-               => Sing (a :: EventType)
-               -> Dict (FromJSON (Payload a))
-\end{hs}
+               => \syn{kt}{Sing} (\type{a} :: \kind{EventType})
+               -> \syn{kt}{Dict} (\syn{kt}{FromJSON} (\syn{kt}{Payload} \type{a}))
+\end{custom}
+
+A `Dict c` is a proof that we have the constraint `c`.
 
 ----
 
-add constraint kind
-
-----
-
-\begin{hs}
-  dictFromJSON :: ( FromJSON (Payload 'WakeUp)
-                  , FromJSON (Payload 'Eat)
-                  , FromJSON (Payload 'RockOut)
+\begin{custom}
+  dictFromJSON :: ( \syn{kt}{FromJSON} (\syn{kt}{Payload} '\type{WakeUp})
+                  , \syn{kt}{FromJSON} (\syn{kt}{Payload} '\type{Eat})
+                  , \syn{kt}{FromJSON} (\syn{kt}{Payload} '\type{RockOut})
                   )
-               => Sing (a :: EventType)
-               -> Dict (FromJSON (Payload a))
-
-  dictFromJSON = \case
-    SWakeUp  -> Dict
-    SEat     -> Dict
-    SRockOut -> Dict
-\end{hs}
-
-----
-
-add lambda case
+               => \syn{kt}{Sing} (\type{a} :: \kind{EventType})
+               -> \syn{kt}{Dict} (\syn{kt}{FromJSON} (\syn{kt}{Payload} \type{a}))
+  dictFromJSON s = \syn{kc}{case} s \syn{kc}{of}
+    \syn{kt}{SWakeUp}  -> \syn{kt}{Dict}
+    \syn{kt}{SEat}     -> \syn{kt}{Dict}
+    \syn{kt}{SRockOut} -> \syn{kt}{Dict}
+\end{custom}
 
 ----
 
@@ -584,6 +620,9 @@ add lambda case
 
 ----
 
+So groovy.
+==========
+
 \begin{raw}
   eventServer :: Server EventAPI
   eventServer = serve \note{importEvent}
@@ -591,62 +630,71 @@ add lambda case
 
 ----
 
-- sweet! our API implementation is done! we now get all of this for free!
-  - we can add new event types to our enum
-  - but we'll get a exhaustiveness error on dictFromJSON
-  - which it can only be fixed if we add a data instance for the new type
-  - and then everything works.
-  - COMPILER DRIVEN CODING!
+Compiler driven coding.
+=======================
+
+It is now impossible to incorrectly hook up a new EventType:
+
+* Exhaustiveness checking of dictFromJSON ensures we made a new payload type and gave it a ToJSON instance.
+
+* The API definitions and server handlers write themselves.
 
 ----
 
-- but what about the other part of the problem?
-  - we also want to serialize these things and stick them into a pipe for downstream consumers
-  - for simplicity we'll encode them as json
-  - assume we have some `Value -> IO ()` pipe function that sends things downstream. how can we call this function?
-    - we need a ToJSON Event, duh
-    - well if we want any chance of encoding it, we're going to need to know that ToJSON is total over the sum space
-    - also need dictToJSON
+The other half of the problem.
+==============================
+
+We also want to serialize these new events into a single pipe for downstream consumption.
+
+For simplicitly we'll also use JSON going downstream.
 
 ----
 
-\begin{hs}
-  dictToJSON :: ( ToJSON (Payload 'WakeUp)
-                , ToJSON (Payload 'Eat)
-                , ToJSON (Payload 'RockOut)
+We know the drill.
+==================
+
+\begin{custom}
+  dictToJSON :: ( \syn{kt}{ToJSON} (\syn{kt}{Payload} '\type{WakeUp})
+                , \syn{kt}{ToJSON} (\syn{kt}{Payload} '\type{Eat})
+                , \syn{kt}{ToJSON} (\syn{kt}{Payload} '\type{RockOut})
                 )
-             => Sing (a :: EventType)
-             -> Dict (ToJSON (Payload a))
-
-  dictToJSON = \case
-    SWakeUp  -> Dict
-    SEat     -> Dict
-    SRockOut -> Dict
-\end{hs}
+             => \syn{kt}{Sing} (\type{a} :: \kind{EventType})
+             -> \syn{kt}{Dict} (\syn{kt}{ToJSON} (\syn{kt}{Payload} \type{a}))
+  dictToJSON s = \syn{kc}{case} s \syn{kc}{of}
+    \syn{kt}{SWakeUp}  -> \syn{kt}{Dict}
+    \syn{kt}{SEat}     -> \syn{kt}{Dict}
+    \syn{kt}{SRockOut} -> \syn{kt}{Dict}
+\end{custom}
 
 ----
 
-- but you'll notice that besides the constraints, this function is exactly the same implementation as dictFromJSON
-  - maybe we can lift this!
-    - dictEvent :: (c ...) => Sing (a :: EventType) -> Dict (c (Payload a))
-  - this means that we can get a dictionary for any c (Payload a) so long as c is total over Payload a!
-    - fucking sweet!
+We can do better!
+=================
+
+Besides the constraints under consideration, `dictToJSON` is identical to `dictFromJSON`.
 
 ----
 
 \begin{raw}
+  \note{\pragma{ConstraintKinds}}
+
   dictPayload :: ( \note{c} (Payload '\type{WakeUp})
                  , \note{c} (Payload '\type{Eat})
                  , \note{c} (Payload '\type{RockOut})
                  )
               => Sing (\type{a} :: \kind{EventType})
               -> Dict (\note{c} (Payload \type{a}))
-
-  dictPayload = \case
+  dictPayload s = case s of
     SWakeUp  -> Dict
     SEat     -> Dict
     SRockOut -> Dict
 \end{raw}
+
+We can now lift *any* constraint that is total over `Payload`.
+
+----
+
+Let's use it to implement ToJSON over Events.
 
 ----
 
@@ -657,13 +705,29 @@ add lambda case
 
 ----
 
-No instance `toJSON` for `Payload a`
+It doesn't work.
+================
 
-Uh oh, we don't have a singleton to actually use to get our `dictPayload`!
+\begin{error}
+  No instance for (ToJSON (Payload \type{et}))
+    arising from a use of `toJSON'
+\end{error}
 
-Scrub lords!
+Oh yeah. It doesn't lift automatically.
 
 ----
+
+We need a singleton to get the Dict.
+====================================
+
+But we don't have one.
+
+But we used to!
+
+----
+
+Save that singleton.
+====================
 
 \begin{raw}
   data Event where
@@ -676,8 +740,7 @@ Scrub lords!
 
 \begin{hs}
   instance ToJSON Event where
-
-    toJSON (MkEvent (setype :: Sing etype) payload) =
+    toJSON (MkEvent setype payload) =
       case dictPayload @ToJSON setype of
         Dict ->
           object [ "type"    .= fromSing setype
@@ -685,11 +748,32 @@ Scrub lords!
                  ]
 \end{hs}
 
+We can write a similar `FromJSON` instance.
+
 ----
+
+We're done!
+===========
+
+But what can we take away?
+
+----
+
+We didn't invent the Event type.
+================================
+
+In the literature, the combination of a value and a type that *depends* on that type is known as a **dependent pair**.
+
+We can write the type of a dependent pair like this:
+
+\newcommand{\spacer}{\begin{raw}&nbsp\end{raw}}
 
 $$\\sum_\\text{a :: EventType} \\text{Payload}(a)$$
 
 ----
+
+Highschool algebra.
+===================
 
 $$\\sum_\\text{a :: EventType} \\text{Payload}(a) = \\text{Payload}(a_1) + \\text{Payload}(a_2) + \\cdots + \\text{Payload}(a_n)$$
 
@@ -699,10 +783,12 @@ Look familiar?
 ==============
 
 \begin{hs}
-  data Event = PayloadWakeUp  (Payload WakeUp)
-             | PayloadEat     (Payload Eat)
-             | PayloadRockOut (Payload RockOut)
+  data Event = EventWakeUp  (Payload WakeUp)
+             | EventEat     (Payload Eat)
+             | EventRockOut (Payload RockOut)
 \end{hs}
+
+This type is perfectly captured by the dependent pair.
 
 ----
 
@@ -711,18 +797,24 @@ More generally.
 
 $$(a, b) :: \\sum_\\text{a :: A} \\text{F}(a)$$
 
-----
+\newcommand{\spacer}{\begin{raw}&nbsp\end{raw}}
 
-\begin{hs}
-  data Some1 (f :: k -> *) where
-    Some1 :: Sing (a :: k) -> f a -> Some1 f
-\end{hs}
+We can encode this directly in Haskell.
 
 ----
 
-Add polykinds.
+Namesake of the talk.
+=====================
+
+\begin{custom}
+  \syn{kc}{data} \syn{kt}{Some1} (f :: \kind{k} -> \kind{Type}) \syn{kc}{where}
+    \syn{kt}{Some1} :: \syn{kt}{Sing} (\type{a} :: \kind{k}) -> f \type{a} -> \syn{kt}{Some1} f
+\end{custom}
 
 ----
+
+Specializing.
+=============
 
 \begin{raw}
   type Event = \note{Some1 Payload}
@@ -730,9 +822,33 @@ Add polykinds.
 
 ----
 
-\begin{hs}
-  class Dict1 (c :: ok -> Constraint)
-              (f :: ik -> ok) where
-    dict1 :: Sing (a :: ik) -> Dict (c (f a))
-\end{hs}
+But that's not all.
+===================
+
+We can generalize our `dictPayload` function as well:
+
+\begin{custom}
+  \syn{kc}{class} \syn{kt}{Dict1} (c :: \kind{output} -> \kind{Constraint})
+              (f :: \kind{input}  -> \kind{output}) \syn{kc}{where}
+    dict1 :: \syn{kt}{Sing} (\type{a} :: \kind{input}) -> \syn{kt}{Dict} (c (f a))
+\end{custom}
+
+----
+
+It comes pre-assembled.
+=======================
+
+All of this machinery has already been built for you!
+
+https://hackage.haskell.org/package/exinst
+
+It also provides instances lifting Dict1 over Some1, as well as tons of other goodies.
+
+----
+
+Thanks for listening!
+=====================
+
+Questions?
+==========
 
