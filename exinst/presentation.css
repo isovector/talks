@@ -25,7 +25,7 @@ p, li {
 
 .new {
   color: #f00;
-  font-weight: bold;
+  /* font-weight: bold; */
 }
 
 #title > h1 {
@@ -82,3 +82,32 @@ p, li {
 .wat {
   background-color: #5af;
 }
+
+.type {
+  /* font-family: Oswald; */
+  font-weight: bold;
+}
+
+.kind {
+  font-family: Yellowtail;
+}
+
+table {
+    border-collapse: collapse;
+    border-style: hidden;
+    margin: auto;
+}
+
+thead {
+  font-weight: bold;
+}
+
+table td, table th {
+  text-align: center;
+}
+
+td {
+  padding-left: 1.3em;
+  padding-right: 1.3em;
+}
+

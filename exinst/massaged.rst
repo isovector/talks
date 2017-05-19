@@ -12,6 +12,15 @@
 
 
 
+
+
+
+
+
+
+
+
+
 ----
 
 :id: title
@@ -27,27 +36,66 @@
 
 ----
 
+An (almost) real life example.
+==============================
+
+We will make a simple data-ingestion platform for our life-tracking app.
+
+The program will provide an API with a unique endpoint for each distinct type of data we can ingest.
+
+----
+
+Survey says: big growth!
+========================
+
+The marketing team says that by the end of the year, we'll have over 500 different "events" we'll want to be able to
+ingest.
+
+----
+
+At this scale, *any* boilerplate is bad news.
+=============================================
+
+Boilerplate is boring to write and easy to get wrong.
+
+----
+
+A first attempt.
+================
+
 .. code:: haskell
 
   data Event = WakeUp
-             | Eat Meal
+             | Eat     Meal
              | RockOut Song Duration
-
-  instance FromJSON Event
 
 
 ----
 
 .. code:: haskell
 
+  instance FromJSON Event where
+    parseJSON = parseWakeUp
+            <|> parseEat
+            <|> parseRockOut
+
+
+----
+
+The API.
+========
+
+.. code:: haskell
+
   type Req  = ReqBody '[JSON] Value
   type Resp = Post    '[JSON] Response
 
-  type EventAPI = "api" :> "event" :>
-         ( "wake-up"  :> Req :> Resp
-      :<|> "eat"      :> Req :> Resp
-      :<|> "rock-out" :> Req :> Resp
-         )
+  type EventAPI =
+    "api" :> "event" :>
+               ( "wake-up"  :> Req :> Resp
+            :<|> "eat"      :> Req :> Resp
+            :<|> "rock-out" :> Req :> Resp
+               )
 
 
 ----
@@ -57,7 +105,7 @@
   importEvent :: Value -> ExceptT ServantErr IO Response
   importEvent blob =
     case fromJSON blob of
-      Error   err -> throwError err
+      Error   err -> throwM err
       Success ev  -> pure $ Response ev
 
 
@@ -76,11 +124,24 @@
 
 ----
 
+Notice how there is no type safety here.
+
+Our *wake-up* endpoint will happily accept a *eat* payload.
+
+----
+
+We can do better!
+=================
+
+Separate the constructors of our sum type into their own types.
+
+----
+
 .. code:: haskell
 
-  data PayloadWakeUp  = WakeUp
-  data PayloadEat     = Eat Meal
-  data PayloadRockOut = RockOut Song Duration
+  data PayloadWakeUp  = PayloadWakeUp
+  data PayloadEat     = PayloadEat     Meal
+  data PayloadRockOut = PayloadRockOut Song Duration
 
   instance FromJSON PayloadWakeUp
   instance FromJSON PayloadEat
@@ -92,9 +153,11 @@
 .. raw:: html
 
   <pre>
-  data Event = PayloadWakeUp  <span class="new">PayloadWakeUp</span>
-             | PayloadEat     <span class="new">PayloadEat</span>
-             | PayloadRockOut <span class="new">PayloadRockOut</span>
+  {-# LANGUAGE TemplateHaskell #-}
+
+  data Event = EventWakeUp  <span class="new">PayloadWakeUp</span>
+             | EventEat     <span class="new">PayloadEat</span>
+             | EventRockOut <span class="new">PayloadRockOut</span>
 
   <span class="new">makePrisms ''Event</span>
 
@@ -103,20 +166,10 @@
 
 ----
 
-.. raw:: html
+Optics provide type safety!
+===========================
 
-  <pre>
-  importEvent :: <span class="new">FromJSON e</span>
-              <span class="new">=> Prism' Event e</span>
-              -> Value
-              -> ExceptT ServantErr IO Response
-  importEvent <span class="new">prism</span> blob =
-    case fromJSON blob of
-      Error   err -> throwError err
-      Success e   -> pure . Response $ <span class="new">review prism</span> e
-
-  </pre>
-
+We can use these prisms to lift our payload types into our `Event` type.
 
 ----
 
@@ -125,10 +178,22 @@
   <pre>
   {-# LANGUAGE RankNTypes #-}
 
+  importEvent :: <span class="new">FromJSON e</span>
+              <span class="new">=> Prism' Event e</span>
+              -> Value
+              -> ExceptT ServantErr IO Response
+  importEvent <span class="new">prism</span> blob =
+    case fromJSON blob of
+      Error   err -> throwM err
+      Success e   -> pure . Response $ <span class="new">review prism</span> e
+
   </pre>
 
 
 ----
+
+Server upgrades.
+================
 
 .. raw:: html
 
@@ -146,26 +211,96 @@
 
 ----
 
-.. code:: haskell
+We've gained type safety!
+=========================
 
-  data EventType = WakeUp | Eat | RockOut
+The endpoints will no longer accept payloads of the wrong type.
 
+----
+
+The compiler doesn't know that our new payload types are related.
+
+----
+
+We can do better!
+=================
+
+Grouping our payload types together might provide opportunities for more clever tricks.
+
+----
+
+A brief interlude.
+==================
+
+On data kinds and type families.
+
+----
+
+Data kinds lifts *values* to **types**, and *types* to **kinds**.
+
+Wat?
 
 ----
 
 .. code:: haskell
 
-  data family Payload (e :: EventType)
+  data Bool = True
+            | False
 
-
-----
 
 .. raw:: html
 
   <pre>
-  <span class="new">{-# LANGUAGE DataKinds    #-}</span>
-  {-# LANGUAGE RankNTypes   #-}
-  <span class="new">{-# LANGUAGE TypeFamilies #-}</span>
+
+  </pre>
+
+
+
+begets, via DataKinds:
+
+.. raw:: html
+
+  <pre class="highlight code haskell">
+
+  <span class="kc">kind</span> <span class="kind">Bool</span> where
+    <span class="kc">type</span> '<span class="type">True</span>
+    <span class="kc">type</span> '<span class="type">False</span>
+
+  </pre>
+
+
+----
+
+Type families.
+==============
+
+A **type family** is a function that returns a type.
+
+Type families only exist at the type level.
+
+----
+
+We can write type families over DataKinds.
+
+----
+
+Back to our regularly scheduled talk.
+=====================================
+
+----
+
+.. code:: haskell
+
+  {-# LANGUAGE DataKinds    #-}
+  {-# LANGUAGE TypeFamilies #-}
+
+  data EventType = WakeUp | Eat | RockOut
+
+
+.. raw:: html
+
+  <pre class="highlight code haskell">
+  <span class="kc">data family</span> <span class="kt">Payload</span> (<span class="type">e</span> :: <span class="kind">EventType</span>)
 
   </pre>
 
@@ -175,9 +310,9 @@
 .. raw:: html
 
   <pre>
-  data <span class="new">instance Payload 'WakeUp</span>  = WakeUp
-  data <span class="new">instance Payload 'Eat</span>     = Eat Meal
-  data <span class="new">instance Payload 'RockOut</span> = RockOut Song Duration
+  data <span class="new">instance Payload '<span class="type">WakeUp</span></span>  = WakeUp
+  data <span class="new">instance Payload '<span class="type">Eat</span></span>     = Eat Meal
+  data <span class="new">instance Payload '<span class="type">RockOut</span></span> = RockOut Song Duration
 
   instance FromJSON (Payload 'WakeUp)
   instance FromJSON (Payload 'Eat)
@@ -188,7 +323,16 @@
 
 ----
 
+Data types for free.
+====================
+
+Armed with this type family, we can get our old sum type for free.
+
+----
+
 .. code:: haskell
+
+  {-# LANGUAGE GADTs #-}
 
   data Event where
     MkEvent :: Payload (et :: EventType) -> Event
@@ -199,18 +343,21 @@
 .. raw:: html
 
   <pre>
-  importEvent :: <span class="new">forall (et :: EventType)</span>
-               . FromJSON (<span class="new">Payload</span> et)
-              -> <span class="new">Proxy et</span>
+  <span class="new">{-# LANGUAGE AllowAmbiguousTypes #-}</span>
+  <span class="new">{-# LANGUAGE KindSignatures      #-}</span>
+  <span class="new">{-# LANGUAGE ScopedTypeVariables #-}</span>
+
+  importEvent :: <span class="new">forall (<span class="type">et</span> :: <span class="kind">EventType</span>)</span>
+               . FromJSON (Payload <span class="type">et</span>)
               -> Value
               -> ExceptT ServantErr IO Response
 
-  importEvent <span class="new">_</span> blob =
+  importEvent blob =
     case fromJSON blob of
       Error err ->
-        throwError err
+        throwM err
 
-      Success (e <span class="new">:: Payload et</span>) ->
+      Success (e <span class="new">:: Payload <span class="type">et</span></span>) ->
         pure . Response $ <span class="new">MkEvent</span> e
 
   </pre>
@@ -218,27 +365,17 @@
 
 ----
 
-.. raw:: html
-
-  <pre>
-  {-# LANGUAGE DataKinds           #-}
-  <span class="new">{-# LANGUAGE KindSigs            #-}</span>
-  {-# LANGUAGE RankNTypes          #-}
-  <span class="new">{-# LANGUAGE ScopedTypeVariables #-}</span>
-  {-# LANGUAGE TypeFamilies        #-}
-
-  </pre>
-
-
-
-----
+Make it compile again.
+======================
 
 .. raw:: html
 
   <pre>
-  wakeUp  = importEvent <span class="new">(Proxy @'WakeUp)</span>
-  eat     = importEvent <span class="new">(Proxy @'Eat)</span>
-  rockOut = importEvent <span class="new">(Proxy @'RockOut)</span>
+  <span class="new">{-# LANGUAGE TypeApplications #-}</span>
+
+  wakeUp  = importEvent <span class="new">@'<span class="type">WakeUp</span></span>
+  eat     = importEvent <span class="new">@'<span class="type">Eat</span></span>
+  rockOut = importEvent <span class="new">@'<span class="type">RockOut</span></span>
 
   eventServer :: Server EventAPI
   eventServer = serve $
@@ -249,18 +386,16 @@
 
 ----
 
-.. raw:: html
+Notice that we've eliminated some boilerplate.
 
-  <pre>
-  {-# LANGUAGE DataKinds           #-}
-  {-# LANGUAGE KindSigs            #-}
-  {-# LANGUAGE RankNTypes          #-}
-  {-# LANGUAGE ScopedTypeVariables #-}
-  <span class="new">{-# LANGUAGE TypeApplications    #-}</span>
-  {-# LANGUAGE TypeFamilies        #-}
+We no longer need to keep our Event type in sync with the payload types.
 
-  </pre>
+----
 
+We can do better!
+=================
+
+Generating the API definition automatically would remove a lot more boilerplate.
 
 ----
 
@@ -285,12 +420,12 @@
               -> Value
               -> ExceptT ServantErr IO Response
 
-  importEvent <span class="wat">et</span> blob =
+  importEvent et blob =
     case fromJSON blob of
       Error err ->
-        throwError err
+        throwM err
 
-      Success (e :: Payload <span class="wat">et</span>) ->
+      Success (e :: Payload <span class="type">et</span>) ->
         pure . Response $ MkEvent e
 
   </pre>
@@ -298,20 +433,142 @@
 
 ----
 
-- OR CAN IT
-  - introducing singletons
-  - singletons allow us to bridge the gap between types and terms
-  - think about the type ()
-    - if you know what type it is, you know the value of it
-    - if you have a value of (), you know what type it is
-    - we have an injective function from these terms to types
-      - because it's injective we can go both directions
-  - the problem is that dealing with these things at the term level is hard -- since they all have different types
-    - we can existentalize over them to let us fit them into something at the term level
-    - data SomeSing k where SomeSing :: (Sing a :: k) -> SomeSing k
-  - singletons also give us the ability to lift in and out of singletons
-    - toSing :: SingKind k => k -> SomeSing k
-    - fromSing :: Sing (a :: k) -> k
+A brief interlude.
+==================
+
+This turns out to be a problem with a solution.
+
+----
+
+Consider Unit.
+==============
+
+.. code:: haskell
+
+  () :: ()
+
+
+If you know what value you have, you know its type, and vice-versa.
+
+----
+
+Singletons generalize this.
+===========================
+
+We'll introduce a new type for each value we'd like to move to the type level.
+
+Unfortunately, not the same types as provided by DataKinds.
+
+----
+
+.. raw:: html
+
+  <pre class="highlight code haskell">
+  {-# LANGUAGE PolyKinds  #-}
+  {-# LANGUAGE TypeInType #-}
+
+  <span class="kr">data family</span> <span class="kt">Sing</span> (<span class="type">a</span> :: <span class="kind">k</span>)
+
+  <span class="kr">class</span> <span class="kt">SingKind</span> <span class="kind">k</span> where
+    toSing   :: k -> <span class="kt">SomeSing</span> <span class="kind">k</span>
+    fromSing :: <span class="kt">Sing</span> (<span class="type">a</span> :: <span class="kind">k</span>) -> k
+
+  </pre>
+
+
+----
+
+.. raw:: html
+
+  <pre class="highlight code haskell">
+  <span class="kr">data instance</span> (<span class="kt">Sing</span> '<span class="type">True</span>)  = <span class="kt">STrue</span>
+  <span class="kr">data instance</span> (<span class="kt">Sing</span> '<span class="type">False</span>) = <span class="kt">SFalse</span>
+
+
+  <span class="kr">instance</span> <span class="kt">SingKind</span> <span class="kind">Bool</span> where
+    toSing b = <span class="kr">case</span> b <span class="kr">of</span>
+      <span class="kt">True</span>  -> <span class="kt">SomeSing STrue</span>
+      <span class="kt">False</span> -> <span class="kt">SomeSing SFalse</span>
+
+    fromSing s = <span class="kr">case</span> s <span class="kr">of</span>
+      <span class="kt">STrue</span> -> <span class="kt">True</span>
+      <span class="kt">False</span> -> <span class="kt">False</span>
+
+  </pre>
+
+
+----
+
+.. code:: haskell
+
+  {-# LANGUAGE TemplateHaskell #-}
+
+  $(singletons [d|
+      data Bool = True
+                | False
+      |])
+
+
+----
+
+
+
+
+
+.. raw:: html
+
+  <table>
+  <thead><tr><td>Value</td><td>Type</td><td>Singleton</td><td>Singleton Type</td><td>Existential Type</td></tr></thead>
+  <tr><td><pre class="highlight haskell code"><span class="kt">True</span></pre></td><td><pre class="highlight haskell code"><span class="kt">Bool</span></pre></td><td><pre class="highlight haskell code"><span class="kt">STrue</span></pre></td><td><pre class="highlight haskell code">Sing '<span class="type">True</span></pre></td><td><pre class="highlight haskell code">SomeSing <span class="kind">Bool</span></pre></td></tr>
+  <tr><td><pre class="highlight haskell code"><span class="kt">False</span></pre></td><td><pre class="highlight haskell code"><span class="kt">Bool</span></pre></td><td><pre class="highlight haskell code"><span class="kt">SFalse</span></pre></td><td><pre class="highlight haskell code">Sing '<span class="type">False</span></pre></td><td><pre class="highlight haskell code">SomeSing <span class="kind">Bool</span></pre></td></tr>
+
+  </table>
+
+
+----
+
+Not just for Bools!
+===================
+
+.. code:: haskell
+
+  $(singletons [d|
+      data EventType = WakeUp
+                     | Eat
+                     | RockOut
+      |])
+
+
+----
+
+.. raw:: html
+
+  <table>
+  <thead><tr><td>Value</td><td>Type</td><td>Singleton</td><td>Singleton Type</td><td>Existential Type</td></tr></thead>
+  <tr><td><pre class="highlight haskell code"><span class="kt">WakeUp</span></pre></td><td><pre class="highlight haskell code"><span class="kt">EventType</span></pre></td><td><pre class="highlight haskell code"><span class="kt">SWakeUp</span></pre></td><td><pre class="highlight haskell code">Sing '<span class="type">WakeUp</span></pre></td><td><pre class="highlight haskell code">SomeSing <span class="kind">EventType</span></pre></td></tr>
+  <tr><td><pre class="highlight haskell code"><span class="kt">Eat</span></pre></td><td><pre class="highlight haskell code"><span class="kt">EventType</span></pre></td><td><pre class="highlight haskell code"><span class="kt">SEat</span></pre></td><td><pre class="highlight haskell code">Sing '<span class="type">Eat</span></pre></td><td><pre class="highlight haskell code">SomeSing <span class="kind">EventType</span></pre></td></tr>
+  <tr><td><pre class="highlight haskell code"><span class="kt">RockOut</span></pre></td><td><pre class="highlight haskell code"><span class="kt">EventType</span></pre></td><td><pre class="highlight haskell code"><span class="kt">SRockOut</span></pre></td><td><pre class="highlight haskell code">Sing '<span class="type">RockOut</span></pre></td><td><pre class="highlight haskell code">SomeSing <span class="kind">EventType</span></pre></td></tr>
+
+  </table>
+
+
+----
+
+.. raw:: html
+
+  <pre class="highlight code haskell">
+  withSomeSing :: <span class="kt">SingKind</span> <span class="kind">k</span>
+               => k
+               -> (<span class="kc">forall</span> (<span class="type">a</span> :: <span class="kind">k</span>). <span class="kt">Sing</span> <span class="type">a</span> -> r)
+               -> r
+
+  </pre>
+
+
+----
+
+Back to our regularly scheduled talk.
+=====================================
 
 ----
 
@@ -323,10 +580,10 @@
               -> ExceptT ServantErr IO Response
 
   importEvent etype blob =
-    <span class="new">withSomeSing etype $ \ (_ :: Sing et) -></span>
+    <span class="new">withSomeSing etype $ \ (_ :: Sing <span class="type">et</span>) -></span>
       case fromJSON blob of
         Error err ->
-          throwError err
+          throwM err
 
         Success (e :: Payload et) ->
           pure . Response $ MkEvent e
@@ -385,14 +642,14 @@ add lambda case
               -> ExceptT ServantErr IO Response
 
   importEvent etype blob =
-    withSomeSing etype $ \ (<span class="new">setype</span> :: Sing et) ->
+    withSomeSing etype $ \ (<span class="new">setype</span> :: Sing <span class="type">et</span>) ->
       <span class="new">case dictFromJSON setype of</span>
         <span class="new">Dict -></span>
           case fromJSON blob of
             Error err ->
-              throwError err
+              throwM err
 
-            Success (e :: Payload et) ->
+            Success (e :: Payload <span class="type">et</span>) ->
               pure . Response $ MkEvent e
 
   </pre>
@@ -437,9 +694,9 @@ add lambda case
                 , ToJSON (Payload 'RockOut)
                 )
              => Sing (a :: EventType)
-             -> Dict (FromJSON (Payload a))
+             -> Dict (ToJSON (Payload a))
 
-  dictFromJSON = \case
+  dictToJSON = \case
     SWakeUp  -> Dict
     SEat     -> Dict
     SRockOut -> Dict
@@ -458,12 +715,12 @@ add lambda case
 .. raw:: html
 
   <pre>
-  dictPayload :: ( <span class="new">c</span> (Payload 'WakeUp)
-                 , <span class="new">c</span> (Payload 'Eat)
-                 , <span class="new">c</span> (Payload 'RockOut)
+  dictPayload :: ( <span class="new">c</span> (Payload '<span class="type">WakeUp</span>)
+                 , <span class="new">c</span> (Payload '<span class="type">Eat</span>)
+                 , <span class="new">c</span> (Payload '<span class="type">RockOut</span>)
                  )
-              => Sing (a :: EventType)
-              -> Dict (<span class="new">c</span> (Payload a))
+              => Sing (<span class="type">a</span> :: <span class="kind">EventType</span>)
+              -> Dict (<span class="new">c</span> (Payload <span class="type">a</span>))
 
   dictPayload = \case
     SWakeUp  -> Dict
@@ -495,8 +752,8 @@ Scrub lords!
 
   <pre>
   data Event where
-    MkEvent :: <span class="new">Sing (et :: EventType)</span>
-            -> Payload et
+    MkEvent :: <span class="new">Sing (<span class="type">et</span> :: <span class="kind">EventType</span>)</span>
+            -> Payload <span class="type">et</span>
             -> Event
 
   </pre>
@@ -518,18 +775,30 @@ Scrub lords!
 
 ----
 
-- this is known as a Sigma type AKA a dependent pair
-  - in the literature it is
-  - Sigma_{a :: EventType} Payload(a)
-    - with values
-    - (a :: EventType, payload :: Payload a) :: Sigma_{a :: EventType} Payload(a)
-  - if you remember your highschool algebra, expanding this out algebraically is
-  - Payload(a1) + Payload(a2) + Payload(a3) etc
-  - aka THIS IS ACTUALLY THE EXACT SUM TYPE WE WERE BUILDING BY HAND BEFORE
+$$\\sum_\\text{a :: EventType} \\text{Payload}(a)$$
 
 ----
 
-$$\\sum_\\text{a :: EventType} \\text{Payload}(a)$$
+$$\\sum_\\text{a :: EventType} \\text{Payload}(a) = \\text{Payload}(a_1) + \\text{Payload}(a_2) + \\cdots + \\text{Payload}(a_n)$$
+
+----
+
+Look familiar?
+==============
+
+.. code:: haskell
+
+  data Event = PayloadWakeUp  (Payload WakeUp)
+             | PayloadEat     (Payload Eat)
+             | PayloadRockOut (Payload RockOut)
+
+
+----
+
+More generally.
+===============
+
+$$(a, b) :: \\sum_\\text{a :: A} \\text{F}(a)$$
 
 ----
 
