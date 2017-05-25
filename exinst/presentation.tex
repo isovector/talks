@@ -237,7 +237,10 @@ On data kinds and type families.
 
 Data kinds lifts *values* to **types**, and *types* to **kinds**.
 
+----
+
 Wat?
+====
 
 ----
 
@@ -266,6 +269,25 @@ Type families.
 
 A **type family** is a function that returns a type.
 
+----
+
+A silly thing.
+==============
+
+\begin{hs}
+  type family NotInt t where
+    NotInt Int = ()
+    NotInt a   = a
+
+  foo :: NotInt Bool
+  foo = True
+
+  bar :: NotInt Int
+  bar = ()
+\end{hs}
+
+----
+
 Type families only exist at the type level.
 
 ----
@@ -293,13 +315,18 @@ Back to our regularly scheduled talk.
 ----
 
 \begin{raw}
-  data \note{instance Payload '\type{WakeUp}}  = WakeUp
-  data \note{instance Payload '\type{Eat}}     = Eat Meal
-  data \note{instance Payload '\type{RockOut}} = RockOut Song Duration
+  data \note{instance} (\note{Payload '\type{WakeUp}}) =
+    PayloadWakeUp
 
-  instance FromJSON (Payload 'WakeUp)
-  instance FromJSON (Payload 'Eat)
-  instance FromJSON (Payload 'RockOut)
+  data \note{instance} (\note{Payload '\type{Eat}}) =
+    PayloadEat Meal
+
+  data \note{instance} (\note{Payload '\type{RockOut}}) =
+    PayloadRockOut Song Duration
+
+  instance FromJSON (Payload '\type{WakeUp})
+  instance FromJSON (Payload '\type{Eat})
+  instance FromJSON (Payload '\type{RockOut})
 \end{raw}
 
 ----
@@ -311,12 +338,12 @@ Armed with this type family, we can get our old sum type for free.
 
 ----
 
-\begin{hs}
+\begin{custom}
   \pragma{GADTs}
 
-  data Event where
-    MkEvent :: Payload (et :: EventType) -> Event
-\end{hs}
+  \syn{kc}{data} \syn{kt}{Event} \syn{kc}{where}
+    \syn{kt}{MkEvent} :: \syn{kt}{Payload} (\type{et} :: \kind{EventType}) -> \syn{kt}{Event}
+\end{custom}
 
 ----
 
@@ -327,7 +354,7 @@ Armed with this type family, we can get our old sum type for free.
 
   importEvent :: \note{forall (\type{et} :: \kind{EventType})}
                . FromJSON (Payload \type{et})
-              -> Value
+              => Value
               -> ExceptT ServantErr IO Response
 
   importEvent blob =
@@ -371,7 +398,10 @@ Generating the API definition automatically would remove a lot more boilerplate.
 
 The EventType now exists at the value level.
 
+----
+
 We might have a chance!
+=======================
 
 ----
 
@@ -409,6 +439,18 @@ Too clever for our own good.
 
 ----
 
+It doesn't work.
+================
+
+\begin{error}
+  No instance for (FromJSON (Payload \type{et}))
+    arising from a use of `fromJSON'
+\end{error}
+
+Huh??
+
+----
+
 A brief interlude.
 ==================
 
@@ -432,6 +474,13 @@ Singletons generalize this.
 
 We'll introduce a new type for each value we'd like to move to the type level.
 
+----
+
+Sounds like DataKinds!
+======================
+
+But it's not.
+
 Unfortunately, not the same types as provided by DataKinds.
 
 ----
@@ -443,8 +492,8 @@ Unfortunately, not the same types as provided by DataKinds.
   \syn{kr}{data family} \syn{kt}{Sing} (\type{a} :: \kind{k})
 
   \syn{kr}{class} \syn{kt}{SingKind} \kind{k} where
-    toSing   :: k -> \syn{kt}{SomeSing} \kind{k}
     fromSing :: \syn{kt}{Sing} (\type{a} :: \kind{k}) -> k
+    toSing   :: k -> \syn{kt}{SomeSing} \kind{k}
 \end{custom}
 
 ----
@@ -455,13 +504,13 @@ Unfortunately, not the same types as provided by DataKinds.
 
 
   \syn{kr}{instance} \syn{kt}{SingKind} \kind{Bool} where
+    fromSing s = \syn{kr}{case} s \syn{kr}{of}
+      \syn{kt}{STrue}  -> \syn{kt}{True}
+      \syn{kt}{SFalse} -> \syn{kt}{False}
+
     toSing b = \syn{kr}{case} b \syn{kr}{of}
       \syn{kt}{True}  -> \syn{kt}{SomeSing STrue}
       \syn{kt}{False} -> \syn{kt}{SomeSing SFalse}
-
-    fromSing s = \syn{kr}{case} s \syn{kr}{of}
-      \syn{kt}{STrue} -> \syn{kt}{True}
-      \syn{kt}{False} -> \syn{kt}{False}
 \end{custom}
 
 ----
@@ -551,13 +600,17 @@ Armed with this knowledge, we can lift our EventType value into the type system!
 
 ----
 
-It doesn't work.
-================
+It still doesn't work.
+======================
 
 \begin{error}
   No instance for (FromJSON (Payload \type{et}))
     arising from a use of `fromJSON'
 \end{error}
+
+Huh?????????????
+
+Didn't we fix this?
 
 ----
 
@@ -763,6 +816,8 @@ We didn't invent the Event type.
 ================================
 
 In the literature, the combination of a value and a type that *depends* on that type is known as a **dependent pair**.
+
+----
 
 We can write the type of a dependent pair like this:
 

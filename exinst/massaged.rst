@@ -239,7 +239,10 @@ On data kinds and type families.
 
 Data kinds lifts *values* to **types**, and *types* to **kinds**.
 
+----
+
 Wat?
+====
 
 ----
 
@@ -277,6 +280,26 @@ Type families.
 
 A **type family** is a function that returns a type.
 
+----
+
+A silly thing.
+==============
+
+.. code:: haskell
+
+  type family NotInt t where
+    NotInt Int = ()
+    NotInt a   = a
+
+  foo :: NotInt Bool
+  foo = True
+
+  bar :: NotInt Int
+  bar = ()
+
+
+----
+
 Type families only exist at the type level.
 
 ----
@@ -311,13 +334,18 @@ Back to our regularly scheduled talk.
 .. raw:: html
 
   <pre>
-  data <span class="new">instance Payload '<span class="type">WakeUp</span></span>  = WakeUp
-  data <span class="new">instance Payload '<span class="type">Eat</span></span>     = Eat Meal
-  data <span class="new">instance Payload '<span class="type">RockOut</span></span> = RockOut Song Duration
+  data <span class="new">instance</span> (<span class="new">Payload '<span class="type">WakeUp</span></span>) =
+    PayloadWakeUp
 
-  instance FromJSON (Payload 'WakeUp)
-  instance FromJSON (Payload 'Eat)
-  instance FromJSON (Payload 'RockOut)
+  data <span class="new">instance</span> (<span class="new">Payload '<span class="type">Eat</span></span>) =
+    PayloadEat Meal
+
+  data <span class="new">instance</span> (<span class="new">Payload '<span class="type">RockOut</span></span>) =
+    PayloadRockOut Song Duration
+
+  instance FromJSON (Payload '<span class="type">WakeUp</span>)
+  instance FromJSON (Payload '<span class="type">Eat</span>)
+  instance FromJSON (Payload '<span class="type">RockOut</span>)
 
   </pre>
 
@@ -331,12 +359,15 @@ Armed with this type family, we can get our old sum type for free.
 
 ----
 
-.. code:: haskell
+.. raw:: html
 
+  <pre class="highlight code haskell">
   {-# LANGUAGE GADTs #-}
 
-  data Event where
-    MkEvent :: Payload (et :: EventType) -> Event
+  <span class="kc">data</span> <span class="kt">Event</span> <span class="kc">where</span>
+    <span class="kt">MkEvent</span> :: <span class="kt">Payload</span> (<span class="type">et</span> :: <span class="kind">EventType</span>) -> <span class="kt">Event</span>
+
+  </pre>
 
 
 ----
@@ -350,7 +381,7 @@ Armed with this type family, we can get our old sum type for free.
 
   importEvent :: <span class="new">forall (<span class="type">et</span> :: <span class="kind">EventType</span>)</span>
                . FromJSON (Payload <span class="type">et</span>)
-              -> Value
+              => Value
               -> ExceptT ServantErr IO Response
 
   importEvent blob =
@@ -400,7 +431,10 @@ Generating the API definition automatically would remove a lot more boilerplate.
 
 The EventType now exists at the value level.
 
+----
+
 We might have a chance!
+=======================
 
 ----
 
@@ -446,6 +480,21 @@ Too clever for our own good.
 
 ----
 
+It doesn't work.
+=================
+
+.. raw:: html
+
+  <pre class="error">
+  No instance for (FromJSON (Payload <span class="type">et</span>))
+    arising from a use of `fromJSON'
+    </pre>
+
+
+Huh??
+
+----
+
 A brief interlude.
 ==================
 
@@ -470,6 +519,13 @@ Singletons generalize this.
 
 We'll introduce a new type for each value we'd like to move to the type level.
 
+----
+
+Sounds like DataKinds!
+======================
+
+But it's not.
+
 Unfortunately, not the same types as provided by DataKinds.
 
 ----
@@ -483,8 +539,8 @@ Unfortunately, not the same types as provided by DataKinds.
   <span class="kr">data family</span> <span class="kt">Sing</span> (<span class="type">a</span> :: <span class="kind">k</span>)
 
   <span class="kr">class</span> <span class="kt">SingKind</span> <span class="kind">k</span> where
-    toSing   :: k -> <span class="kt">SomeSing</span> <span class="kind">k</span>
     fromSing :: <span class="kt">Sing</span> (<span class="type">a</span> :: <span class="kind">k</span>) -> k
+    toSing   :: k -> <span class="kt">SomeSing</span> <span class="kind">k</span>
 
   </pre>
 
@@ -499,13 +555,13 @@ Unfortunately, not the same types as provided by DataKinds.
 
 
   <span class="kr">instance</span> <span class="kt">SingKind</span> <span class="kind">Bool</span> where
+    fromSing s = <span class="kr">case</span> s <span class="kr">of</span>
+      <span class="kt">STrue</span>  -> <span class="kt">True</span>
+      <span class="kt">SFalse</span> -> <span class="kt">False</span>
+
     toSing b = <span class="kr">case</span> b <span class="kr">of</span>
       <span class="kt">True</span>  -> <span class="kt">SomeSing STrue</span>
       <span class="kt">False</span> -> <span class="kt">SomeSing SFalse</span>
-
-    fromSing s = <span class="kr">case</span> s <span class="kr">of</span>
-      <span class="kt">STrue</span> -> <span class="kt">True</span>
-      <span class="kt">False</span> -> <span class="kt">False</span>
 
   </pre>
 
@@ -615,8 +671,8 @@ Armed with this knowledge, we can lift our EventType value into the type system!
 
 ----
 
-It doesn't work.
-================
+It still doesn't work.
+======================
 
 .. raw:: html
 
@@ -625,6 +681,10 @@ It doesn't work.
     arising from a use of `fromJSON'
     </pre>
 
+
+Huh?????????????
+
+Didn't we fix this?
 
 ----
 
@@ -863,6 +923,8 @@ We didn't invent the Event type.
 ================================
 
 In the literature, the combination of a value and a type that *depends* on that type is known as a **dependent pair**.
+
+----
 
 We can write the type of a dependent pair like this:
 
