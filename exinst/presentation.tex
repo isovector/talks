@@ -53,6 +53,16 @@
 
 ----
 
+Slides available.
+=================
+
+\begin{raw}
+  <h3>reasonablypolymorphic.com/some1-like-you</h3>
+\end{raw}
+
+
+----
+
 An (almost) real life example.
 ==============================
 
@@ -527,21 +537,6 @@ It doesn't have to be so bad!
 
 ----
 
-\newcommand{\singhead}{<thead>\sing{Value}{Type}{Singleton}{Singleton Type}{Existential Type}</thead>}
-\newcommand{\sing}[5]{<tr><td>#1</td><td>#2</td><td>#3</td><td>#4</td><td>#5</td></tr>}
-\newcommand{\singb}[2]{\sing{\b{\syn{kt}{#1}}}{\b{\syn{kt}{#2}}}{\b{\syn{kt}{S#1}}}{\b{Sing '\type{#1}}}{\b{SomeSing \kind{#2}}}}
-
-Lots to keep in mind.
-=====================
-
-\begin{table}
-  \singhead
-  \singb{True}{Bool}
-  \singb{False}{Bool}
-\end{table}
-
-----
-
 Not just for Bools!
 ===================
 
@@ -552,15 +547,6 @@ Not just for Bools!
                    | RockOut
     |]
 \end{hs}
-
-----
-
-\begin{table}
-  \singhead
-  \singb{WakeUp}{EventType}
-  \singb{Eat}{EventType}
-  \singb{RockOut}{EventType}
-\end{table}
 
 ----
 
@@ -594,7 +580,7 @@ Armed with this knowledge, we can lift our EventType value into the type system!
         Error err ->
           throwM err
 
-        Success (e :: Payload et) ->
+        Success (e :: Payload \type{et}) ->
           pure . Response \$ MkEvent e
 \end{raw}
 

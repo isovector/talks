@@ -37,6 +37,20 @@
 
 ----
 
+Slides available.
+=================
+
+.. raw:: html
+
+  <pre>
+  <h3>reasonablypolymorphic.com/some1-like-you</h3>
+
+  </pre>
+
+
+
+----
+
 An (almost) real life example.
 ==============================
 
@@ -481,7 +495,7 @@ Too clever for our own good.
 ----
 
 It doesn't work.
-=================
+================
 
 .. raw:: html
 
@@ -581,25 +595,6 @@ It doesn't have to be so bad!
 
 ----
 
-
-
-
-
-Lots to keep in mind.
-=====================
-
-.. raw:: html
-
-  <table>
-  <thead><tr><td>Value</td><td>Type</td><td>Singleton</td><td>Singleton Type</td><td>Existential Type</td></tr></thead>
-  <tr><td><pre class="highlight haskell code"><span class="kt">True</span></pre></td><td><pre class="highlight haskell code"><span class="kt">Bool</span></pre></td><td><pre class="highlight haskell code"><span class="kt">STrue</span></pre></td><td><pre class="highlight haskell code">Sing '<span class="type">True</span></pre></td><td><pre class="highlight haskell code">SomeSing <span class="kind">Bool</span></pre></td></tr>
-  <tr><td><pre class="highlight haskell code"><span class="kt">False</span></pre></td><td><pre class="highlight haskell code"><span class="kt">Bool</span></pre></td><td><pre class="highlight haskell code"><span class="kt">SFalse</span></pre></td><td><pre class="highlight haskell code">Sing '<span class="type">False</span></pre></td><td><pre class="highlight haskell code">SomeSing <span class="kind">Bool</span></pre></td></tr>
-
-  </table>
-
-
-----
-
 Not just for Bools!
 ===================
 
@@ -610,19 +605,6 @@ Not just for Bools!
                    | Eat
                    | RockOut
     |]
-
-
-----
-
-.. raw:: html
-
-  <table>
-  <thead><tr><td>Value</td><td>Type</td><td>Singleton</td><td>Singleton Type</td><td>Existential Type</td></tr></thead>
-  <tr><td><pre class="highlight haskell code"><span class="kt">WakeUp</span></pre></td><td><pre class="highlight haskell code"><span class="kt">EventType</span></pre></td><td><pre class="highlight haskell code"><span class="kt">SWakeUp</span></pre></td><td><pre class="highlight haskell code">Sing '<span class="type">WakeUp</span></pre></td><td><pre class="highlight haskell code">SomeSing <span class="kind">EventType</span></pre></td></tr>
-  <tr><td><pre class="highlight haskell code"><span class="kt">Eat</span></pre></td><td><pre class="highlight haskell code"><span class="kt">EventType</span></pre></td><td><pre class="highlight haskell code"><span class="kt">SEat</span></pre></td><td><pre class="highlight haskell code">Sing '<span class="type">Eat</span></pre></td><td><pre class="highlight haskell code">SomeSing <span class="kind">EventType</span></pre></td></tr>
-  <tr><td><pre class="highlight haskell code"><span class="kt">RockOut</span></pre></td><td><pre class="highlight haskell code"><span class="kt">EventType</span></pre></td><td><pre class="highlight haskell code"><span class="kt">SRockOut</span></pre></td><td><pre class="highlight haskell code">Sing '<span class="type">RockOut</span></pre></td><td><pre class="highlight haskell code">SomeSing <span class="kind">EventType</span></pre></td></tr>
-
-  </table>
 
 
 ----
@@ -663,7 +645,7 @@ Armed with this knowledge, we can lift our EventType value into the type system!
         Error err ->
           throwM err
 
-        Success (e :: Payload et) ->
+        Success (e :: Payload <span class="type">et</span>) ->
           pure . Response $ MkEvent e
 
   </pre>
