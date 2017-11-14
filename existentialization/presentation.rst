@@ -5,38 +5,22 @@
 :css: presentation.css
 
 
-\newenvironment{table}{.. raw:: html
 
-  <table>}{
-  </table>
-}
 
-\newenvironment{hs}{.. code:: haskell
-}{}
-\newenvironment{raw}{.. raw:: html
 
-  <pre>}{
-  </pre>
-}
-\newenvironment{error}{.. raw:: html
 
-  <pre class="error">}{    </pre>
-}
-\newenvironment{custom}{.. raw:: html
 
-  <pre class="highlight code haskell">}{
-  </pre>
-}
-\newcommand{\$}{\begin{verbatim}$\end{verbatim}}
-\newcommand{\todo}[2]{#2}
-\newcommand{\note}[1]{<span class="new">#1</span>}
-\newcommand{\wat}[1]{<span class="wat">#1</span>}
-\newcommand{\type}[1]{<span class="type">#1</span>}
-\newcommand{\kind}[1]{<span class="kind">#1</span>}
-\newcommand{\syn}[2]{<span class="#1">#2</span>}
-\newcommand{\pragma}[1]{\{-# LANGUAGE #1 #-\}}
-\newcommand{\pragmasyn}[1]{\syn{cm}{\{-# LANGUAGE #1 #-\}}}
-\newcommand{\b}[1]{<pre class="highlight haskell code">#1</pre>}
+
+
+
+
+
+
+
+
+
+
+
 
 ----
 
@@ -56,9 +40,13 @@
 Slides available.
 =================
 
-\begin{raw}
+.. raw:: html
+
+  <pre>
   <h3>reasonablypolymorphic.com/existentialization</h3>
-\end{raw}
+
+  </pre>
+
 
 ----
 
@@ -106,10 +94,11 @@ Heterogeneous Lists
 The Any Type
 ============
 
-\begin{hs}
+.. code:: haskell
+
   data Any where
     Any :: a -> Any
-\end{hs}
+
 
   - here any can be thought of as a container
     - we can stuff any type we want into it, and get back a value of type any
@@ -125,9 +114,10 @@ RIGID SKOLEMS
 
   - so what happens if we try it?
 
-\begin{hs}
+.. code:: haskell
+
   f (Any a) = a
-\end{hs}
+
 
     - • Couldn't match expected type ‘t’ with actual type ‘a’
       - because type variable ‘a’ would escape its scope
@@ -139,10 +129,11 @@ RIGID SKOLEMS
 RIGID SKOLEMS
 =============
 
-\begin{hs}
+.. code:: haskell
+
   f :: Any -> a
   f (Any a) = a
-\end{hs}
+
 
   - hmm. let's think about this. what type would this thing have to have?
   - but recall this the same as saying `forall a. Any -> a`
@@ -168,13 +159,14 @@ Anyway
 
   - this kind of solves our problem:
 
-\begin{hs}
+.. code:: haskell
+
   listOfAnything :: [Any]
   listOfAnything = [ Any 5
                    , Any Bool
                    , Any (show :: Char -> String)
                    ]
-\end{hs}
+
 
     - but it's not actaully useful because we can never get any of this data out
     - shit
@@ -203,12 +195,13 @@ Iterators
 Iterators
 =========
 
-\begin{hs}
+.. code:: haskell
+
   data Iterator a where
     Iterator :: { iterState :: s
                 , iterNext  :: s -> (a, s)
                 } -> Iterator a
-\end{hs}
+
 
   - we can think of an iterator as containing a piece of internal state, along with a function that will use that state to spit out a value and a new state
     - the thing to notice here is that i don't care what the internal state is
@@ -223,12 +216,13 @@ Pump It Real Good
 
   - we can implement a function that uses an Iterator to spit out as
 
-\begin{hs}
+.. code:: haskell
+
   pump :: Iterator a -> (a, Iterator a)
   pump iter = let getNext = iterNext iter
-                  (a, s') = getNext \$ iterState iter
+                  (a, s') = getNext $ iterState iter
                in (a, Iterator s' getNext)
-\end{hs}
+
 
   - this is kind of neat
   - just because we don't know what type is inside of the iterator's state
@@ -243,10 +237,11 @@ Pump It Real Good
 A More Interesting GADT
 =======================
 
-\begin{hs}
+.. code:: haskell
+
   data Dict c where
     Dict :: c => Dict c
-\end{hs}
+
 
   - notice here that c exists in the type, and so it is not existential. ghc can track it
   - but this is not any old data type
@@ -269,7 +264,8 @@ Reified Constraints
     - they're now reified at the value level
   - example
 
-\begin{hs}
+.. code:: haskell
+
   maybeShow :: a -> Maybe (Dict (Show a)) -> String
   maybeShow a (Just Dict) = show a
   maybeShow _ Nothing     = "i don't know how to show that"
@@ -278,7 +274,7 @@ Reified Constraints
   -- example
   maybeShow True (Just Dict)  -- "True"
   maybeShow flip Nothing      -- "i don't know how to show that"
-\end{hs}
+
 
   - we only get a proof of Show a inside of the first case
 
@@ -289,13 +285,14 @@ Generalizing
 
 - we can use the same technique to make a more useful any-list
 
-\begin{hs}
+.. code:: haskell
+
   data Showable where
     Showable :: Show a => a -> Showable
 
   showList :: [Showable] -> [String]
   showList = fmap (λ(Showable a) -> show a)
-\end{hs}
+
 
 ----
 
@@ -304,13 +301,14 @@ A Counter Example
 
 - but what we can't do is
 
-\begin{hs}
+.. code:: haskell
+
   data Equatable where
     Equatable :: Eq a => a -> Equatable
 
   equate :: Equatable -> Equatable -> Bool
   equate (Equatable a) (Equatable b) = a == b
-\end{hs}
+
 
 - we can't do this because we don't know that the types packed inside of these things are the same
   - implicitly what we have is `(a :: exists. var0)` and `(b :: exists. var1)` and we are trying to say `a == b` which obviously we can't do since they are different types
@@ -331,14 +329,17 @@ Eliminators
 
   - the general form of it is this:
 
-\begin{hs}
+.. code:: haskell
+
   eliminate :: SomeExistential -> (forall a. a -> r) -> r
-\end{hs}
+
 
     - the forall a. a bit should be replaced with the definition of the existential
+
     - for example:
 
-\begin{hs}
+.. code:: haskell
+
   eliminateShowable :: Showable
                     -> (forall a. Show a => a -> r)
                     -> r
@@ -348,7 +349,7 @@ Eliminators
                               -> (s -> (a, s))
                               -> r)
                     -> r
-\end{hs}
+
 
 ----
 
