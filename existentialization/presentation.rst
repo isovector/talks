@@ -16,12 +16,6 @@
 
 
 
-
-
-
-
-
-
 ----
 
 :id: title
@@ -50,44 +44,63 @@ Slides available.
 
 ----
 
-th-dict-discovery
-=================
-
-- This title is a little misleading
-  - it's actually more
-  - how can we implement my th-dict-discovery library
-  - to get from here to there we're going to need to go through existentialization
-  - so it hasn't been false advertising
-  - but you're actually going to get MORE THAN YOU WERE BARGAINING FOR
-
-----
-
 The Problem
 ===========
 
-- We would like to be able to quickcheck properties for instances we write
-- wouldn't it be nice to have tests that AUTOMATICALLY get generated?
-- like, every monad instance i write is actually a monad?? very cool
+- We would like to be able to automatically generate quickcheck properties for instances we write
+- eg. automatic proofs that every `Monad` instance is well behaved
+
+----
+
+BUT FIRST
+=========
 
 ----
 
 Heterogeneous Lists
 ===================
 
-  - let's say we are javascript programmers and for some reason we want to shove any type we want into a list
-  - haskell doesn't let us do this:
-    - [1, 2] :: [Int]
-    - [True] :: [Bool]
-    - [1, True] :: type error, mafucka
+- Let's say we are Javascript programmers and we hate types
+- We want to make a list that can contain values of any type
+
+- Haskell doesn't let us do this:
+
+.. code:: haskell
+
+  [1, 2, 3] :: [Int]   -- ok
+  [True]    :: [Bool]  -- ok
+  [1, True] :: ??      -- type error, :(
+
 
 ----
 
 Heterogeneous Lists
 ===================
 
-  - but WDGAF. even though this isn't actually useful in any way, we want to do it anyway
-  - how can we? is haskell suchh a shit language that it can't express this?
-  - no! we can do it
+- This is not all that useful, it turns out.
+- But even so, is Haskell such a shit language that we can't express such a thing?
+
+----
+
+No! We can!
+===========
+
+----
+
+The Any Type
+============
+
+Use a GADT.
+
+.. code:: haskell
+
+  data Any where
+    Any :: a -> Any
+
+
+We can think of `Any` as a container.
+
+We can stuff whatever we want into it, and get back a value of type `Any`.
 
 ----
 
@@ -99,35 +112,55 @@ The Any Type
   data Any where
     Any :: a -> Any
 
+  Any True                    :: Any
+  Any (show :: Int -> String) :: Any
 
-  - here any can be thought of as a container
-    - we can stuff any type we want into it, and get back a value of type any
-    - this any contains the `a`
-    - but we say it is now existential
-    - as in, we know it EXISTS, but we don't know what it is
+
+
+We've lost track of what type the value inside the `Any` had.
+
+We say the `a` is now *existential*.
+
+As in: we know it *exists*, but not much else about it.
 
 ----
 
 RIGID SKOLEMS
 =============
 
-
-  - so what happens if we try it?
+What happens if we try to take the value out of the `Any`?
 
 .. code:: haskell
 
   f (Any a) = a
 
 
-    - • Couldn't match expected type ‘t’ with actual type ‘a’
-      - because type variable ‘a’ would escape its scope
-      - This (rigid, skolem) type variable is bound by
-        - a pattern with constructor: Any :: forall a. a -> Any,
+Any guesses?
 
 ----
 
 RIGID SKOLEMS
 =============
+
+.. raw:: html
+
+  <pre>
+  • Couldn't match expected type ‘t’ with actual type ‘a’
+    because type variable ‘a’ would escape its scope
+    This (rigid, skolem) type variable is bound by
+      a pattern with constructor: Any :: forall a. a -> Any,
+
+  </pre>
+
+
+u wot m8
+
+----
+
+RIGID SKOLEMS
+=============
+
+We can get some insight by looking at what type this thing would have.
 
 .. code:: haskell
 
@@ -135,29 +168,48 @@ RIGID SKOLEMS
   f (Any a) = a
 
 
-  - hmm. let's think about this. what type would this thing have to have?
-  - but recall this the same as saying `forall a. Any -> a`
-    - ie "i can give you back any `a` you want"
-  - BUT THIS IS NOT TRUE
-    - i have a SPECIFIC a inside of my `Any`
-    - but i don't know what it is
-    - if it's an Int and you ask for a Bool, I can't just give you a bool because i have an int
+----
+
+RIGID SKOLEMS
+=============
+
+But recall that this is short form for:
+
+.. code:: haskell
+
+  f :: forall a. Any -> a
+  f (Any a) = a
+
+
+ie. "I can give you back any `a` you want"
+
+----
+
+That's a damn lie
+=================
+
+There's a specific `a` inside the `Any`.
+
+It might be a `Bool` or a `String` or whatever, but it is *not* "whatever you ask for".
 
 ----
 
 Too Rigid
 =========
 
-  - so that's what this means
-    - a rigid skolem variable is a type that is existentially quantified
-    - you can't leak it out because it doesn't even EXIST outside
+You will run into this error all the time when you first start existentializing things.
+
+So that's what this means:
+
+- a (rigid, skolem) variable is a type that is existentially quantified
+- you can't leak it out because it doesn't even EXIST outside
 
 ----
 
-Anyway
-======
+Anyways
+=======
 
-  - this kind of solves our problem:
+This kind of solves our subproblem:
 
 .. code:: haskell
 
@@ -168,32 +220,65 @@ Anyway
                    ]
 
 
-    - but it's not actaully useful because we can never get any of this data out
-    - shit
+But it's not actaully useful because we can never get any of this data out.
 
 ----
 
-No Really, It's Actually Useful
-===============================
-
-  - as you might guess, this doesn't mean we can't actually do anything useful with the technique
-  - just that it requires MORE THINKING
-  - let's talk about iterators
-    - like in python or whatever
+But that doesn't mean the technique isn't useful
+================================================
 
 ----
 
-Iterators
-=========
+Usefulness
+==========
 
-  - we want to be able to produce a series of values
-    - and maybe these values depend on some sort of state
-    - we don't really care what that state is, so long as we can pull values out of it
+As you might guess, this doesn't mean we can't actually do anything useful with the technique.
+
+Just that it requires *more thinking*
+
+Let's talk about iterators. Like in Python or whatever.
 
 ----
 
 Iterators
 =========
+
+We want to be able to produce a series of values.
+
+And maybe these values depend on some sort of state
+
+We don't really care what that state is, so long as we can pull values out of it
+
+----
+
+A first try
+===========
+
+.. code:: haskell
+
+  data Iterator s a = Iterator
+    { iterState :: s
+    , iterNext  :: s -> (a, s)
+    }
+
+
+This seems to do what we want.
+
+----
+
+But it's kinda gross
+====================
+
+The state variable leaks.
+
+That means you can't make a list of these things with different pieces of internal state, eg.
+
+----
+
+Iterators Take 2
+================
+
+Let's existentialize it!
 
 .. code:: haskell
 
@@ -203,18 +288,16 @@ Iterators
                 } -> Iterator a
 
 
-  - we can think of an iterator as containing a piece of internal state, along with a function that will use that state to spit out a value and a new state
-    - the thing to notice here is that i don't care what the internal state is
-    - it doesn't leak out of my type signature
-    - so this thing could depend on the weather, or who knows
-    - i don't care though
+The thing to notice here is that i don't care what the internal state is
+
+It doesn't leak out of my type signature
 
 ----
 
 Pump It Real Good
 =================
 
-  - we can implement a function that uses an Iterator to spit out as
+- We can implement a function that uses an Iterator to spit out `a` s
 
 .. code:: haskell
 
@@ -224,13 +307,35 @@ Pump It Real Good
                in (a, Iterator s' getNext)
 
 
-  - this is kind of neat
-  - just because we don't know what type is inside of the iterator's state
-    - doens't mean that GHC doesn't know that these types are the same
+This is kind of neat.
 
-  - so outside of iterator we don't know and can't look at the type
-    - but GHC was smart enough to know there is only actually a single type in here
-    - even though it doesn't know what it is, it can still reason about it
+----
+
+Pump It Real Good
+=================
+
+.. code:: haskell
+
+  pump :: Iterator a -> (a, Iterator a)
+  pump iter = let getNext = iterNext iter
+                  (a, s') = getNext $ iterState iter
+               in (a, Iterator s' getNext)
+
+
+We can think of this as
+
+.. code:: haskell
+
+  (iterState, iterNext) :: exists s. (s, s -> (a, s))
+
+
+GHC doesn't know what this `s` type variable is, but it knows that `iterState` and `iterNext` are talking about the same
+`thing`.
+
+----
+
+And now for something seemingly completely different.
+=====================================================
 
 ----
 
@@ -239,30 +344,41 @@ A More Interesting GADT
 
 .. code:: haskell
 
-  data Dict c where
+  data Dict (c :: Constraint) where
     Dict :: c => Dict c
 
 
-  - notice here that c exists in the type, and so it is not existential. ghc can track it
-  - but this is not any old data type
+Notice here that `c` exists in the type, and so it is not existential.
+
+But this is not any old data type!
 
 ----
 
 Constructing Dicts
 ==================
 
-  - we're saying we can only construct Dict c if c is an instance of a typeclass
-  - eg Dict (Enum Bool), Dict (Show Int), but not (Dict (Show (Int -> Int))
+This says we can only construct a `Dict c` if `c` is an instance.
+
+eg.
+
+.. code:: haskell
+
+  Dict :: Dict (Enum Bool)        -- ok
+  Dict :: Dict (Show Int)         -- ok
+
+  Dict :: Dict (Eq (Int -> Int))  -- bad
+
+
+Haskell doesn't have equality defined for functions.
 
 ----
 
 Reified Constraints
 ===================
 
-  - what value does THIS provide us?
-  - it means we can pass constraints along as values
-    - they're now reified at the value level
-  - example
+What value does this provide us?
+
+It means we can pass constraints along as values -- they're now refied at the value level.
 
 .. code:: haskell
 
@@ -271,19 +387,16 @@ Reified Constraints
   maybeShow _ Nothing     = "i don't know how to show that"
 
 
-  -- example
   maybeShow True (Just Dict)  -- "True"
   maybeShow flip Nothing      -- "i don't know how to show that"
 
-
-  - we only get a proof of Show a inside of the first case
 
 ----
 
 Generalizing
 ============
 
-- we can use the same technique to make a more useful any-list
+We can use the same technique to make a more useful any-list
 
 .. code:: haskell
 
@@ -293,13 +406,20 @@ Generalizing
   showList :: [Showable] -> [String]
   showList = fmap (λ(Showable a) -> show a)
 
+  -------------------------------------
+
+  myList :: [Showable]
+  myList = [Showable 1, Showable Bool, Showable "hello"]
+
+  showList myList  -- [1, Bool, "\"hello\""]
+
 
 ----
 
 A Counter Example
 =================
 
-- but what we can't do is
+Something we *can't* do:
 
 .. code:: haskell
 
@@ -310,39 +430,100 @@ A Counter Example
   equate (Equatable a) (Equatable b) = a == b
 
 
-- we can't do this because we don't know that the types packed inside of these things are the same
-  - implicitly what we have is `(a :: exists. var0)` and `(b :: exists. var1)` and we are trying to say `a == b` which obviously we can't do since they are different types
+----
+
+A Counter Example
+=================
+
+This doesn't work, because it's morally equivalent to this:
+
+.. code:: haskell
+
+  equate :: exists a b. (Eq a, Eq b) => a -> b -> Bool
+  equate a b = a == b
+
+
+We don't know that `a` and `b` have the same type!
 
 ----
 
 Eliminators
 ===========
 
-  - in general, the strategy for doing useful things with existential variables is to introduce eliminators for them
-  - if we want to do something useful with a value of unknown type
-    - we're going to need to provide a function that can do something FOR ALL types
+In general, the strategy for doing useful things with existential variables is to introduce **eliminators** for them.
+
+If we want to do something useful with a value of unknown type, we're going to need to provide a function that can do
+something FOR ALL types.
 
 ----
 
 Eliminators
 ===========
 
-  - the general form of it is this:
+The general form of it is this:
 
 .. code:: haskell
 
   eliminate :: SomeExistential -> (forall a. a -> r) -> r
 
 
-    - the forall a. a bit should be replaced with the definition of the existential
+If you give us an existential, and a way of constructing an `r` for any type I throw at you, then I can give you back an
+`r`.
 
-    - for example:
+wat?
+
+----
+
+Eliminators
+===========
+
+A dumb example:
 
 .. code:: haskell
+
+  eliminate myExistential (const True)   -- True
+
+
+----
+
+Eliminators
+===========
+
+.. code:: haskell
+
+  eliminate :: SomeExistential -> (forall a. a -> r) -> r
+
+
+The `forall a. a` bit should be replaced with the definition of the existential.
+
+----
+
+Eliminators
+===========
+
+.. code:: haskell
+
+  data Showable where
+    Showable :: Show a => a -> Showable
+
 
   eliminateShowable :: Showable
                     -> (forall a. Show a => a -> r)
                     -> r
+
+
+----
+
+Eliminators
+===========
+
+.. code:: haskell
+
+  data Iterator a where
+    Iterator :: { iterState :: s
+                , iterNext  :: s -> (a, s)
+                } -> Iterator a
+
 
   eliminateIterator :: Iterator a
                     -> (forall s. s
@@ -356,22 +537,75 @@ Eliminators
 Eliminate the Lack of Intuition
 ===============================
 
-  - the idea is that if can produce some `r` (that i get to choose) from whatever contents are inside the existential
-    - then i can produce an r given some existential
+The idea is that if can produce some `r` (that i get to choose) from whatever contents are inside the existential
+
+Then I can produce an `r` given some existential value!
 
 ----
 
+A Server
+========
 
-- you might be wondering what useful work you can do with an existential value
-  - consider this: if the value you're existential over is only an IMPLEMENTATION DETAIL
-    - zipkin example
-  - or if you don't even care about the existential anyway
-- putting it all together
-  - we can make a GADT existential over its dict parameters:
-  - data SomeDict1 (c :: k -> Constraint) where
-    - SomeDict 1 :: c a => Proxy a -> SomeDict1 c
-  - we can use this eg `SomeDict1 Show` to get represent that we have a proof of being able to show SOMETHING, even though we don't know what
-  - and so we can use the SAME TRICK
-    - a list of [SomeDict1 Monad], for example, is a list of Monad instances
-    - if someone provided us with such a list, we could use it to generate quicktest checks proving that each instance follows the laws
+Let's say I want to run a server that will respond to different endpoints.
+
+But each endpoint will take and return different payload types.
+
+----
+
+A Server
+========
+
+.. code:: haskell
+
+  class Encodable a where
+    encode :: a -> ByteString
+    decode :: ByteString -> a
+
+  instance Encodable Bool
+  instance Encodable Int
+  instance Encodable String
+  -- etc
+
+
+----
+
+A Server
+========
+
+.. code:: haskell
+
+  data SomeHandler where
+    SomeHandler :: (Encodable a, Encodable b)
+                => (a -> IO b)
+                -> SomeHandler
+
+
+----
+
+A Server
+========
+
+.. code:: haskell
+
+  recv :: IO (Endpoint, ByteString)
+  send :: IO ByteString
+
+
+  serve :: [(Endpoint, SomeHandler)] -> IO ()
+  serve handlers = forever $ do
+    (endpoint, payload) <- recv
+
+    case lookup endpoint handlers of
+      Nothing -> putStrLn "no handler!"
+      Just (SomeHandler handler) ->
+        result <- handler $ decode payload
+        send $ encode result
+
+
+----
+
+Thanks for listening!
+=====================
+
+Any questions?
 
