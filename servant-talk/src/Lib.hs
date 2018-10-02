@@ -1,36 +1,86 @@
-{-# LANGUAGE DataKinds        #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeOperators    #-}
+{-# LANGUAGE DataKinds            #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE MonoLocalBinds       #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TypeApplications     #-}
+{-# LANGUAGE TypeOperators        #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
-module Lib
-    ( main
-    ) where
+module Lib where
 
-import Servant
-import Servant.Server
+import Data.Text (Text)
+import Magic
 import Network.Wai.Handler.Warp
-import Data.IORef
-import System.IO.Unsafe
-import Control.Monad.IO.Class
-import Debug.Trace
+import Servant
+import Servant.Client
+import Servant.Docs (ToParam (..), ToSample (..), singleSample, DocQueryParam (..), ParamKind(..))
+import Servant.JS
+import Servant.Server
 
-showTrace = trace =<< show
 
-globalCounter :: IORef Int
-globalCounter = unsafePerformIO $ newIORef 0
+globalCounter :: Variable Int
+globalCounter = newVariable 0
+
+-- type API = ..
+
+-- {{{
+
+-- getHandler :: Handler Int
+-- getHandler = _
+
+-- {{{
+
+-- myAPI :: Proxy API
+-- myAPI = Proxy
+
+-- main :: IO ()
+-- main = run 8080
+--      . serve myAPI
+--      $ getHandler
+
+-- {{{
+
+-- incrHandler :: Handler ()
+-- incrHandler = _
+
+-- {{{
+
+-- getClient, modifyClient
+
+-- {{{
+
+-- incrHandler
+
+-- {{{
+
+-- type Annotated api
+
+-- {{{
+
+-- serveAnnotated
+--     :: forall api
+--      . HasServer (Annotated api) '[]
+--     => Proxy api
+--     -> ServerT api Handler
+--     -> Application
+
+-- {{{
 {-# NOINLINE globalCounter #-}
 
-type API = "counter" :> Get '[JSON] Int
-      :<|> "counter" :> QueryParam "set" Int :> Post '[JSON] ()
 
-getHandler :: Handler Int
-getHandler = liftIO $ readIORef globalCounter
+instance ToParam (QueryParam "set" Int) where
+  toParam _ =
+    DocQueryParam
+      "set"
+      ["integer"]
+      "The amount to set the internal counter to"
+      Normal
 
-putHandler :: Maybe Int -> Handler ()
-putHandler Nothing = pure ()
-putHandler (Just i) = liftIO $ writeIORef globalCounter $ showTrace i
+instance ToSample Int where
+  toSamples _ = singleSample 0
 
+instance ToSample () where
+-- }}}
+-- }}}}}}}}}}}}}}}}}}}}}
 
-main :: IO ()
-main = do
-  run 8080 $ serve (Proxy @API) $ getHandler :<|> putHandler

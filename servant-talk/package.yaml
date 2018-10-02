@@ -24,6 +24,15 @@ dependencies:
 - servant
 - servant-server
 - warp
+- text
+- servant-js
+- servant-client
+- servant-docs
+- servant-swagger
+- aeson
+- bytestring
+- string-conv
+- http-client
 
 library:
   source-dirs: src
