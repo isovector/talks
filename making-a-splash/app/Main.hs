@@ -3,13 +3,15 @@
 module Main where
 
 import Polysemy
-import Polysemy.Slide
+import Polysemy.Bullets
 import Polysemy.Code
+import Polysemy.Slide
 import Polysemy.Trace
 
 
 slideDeck
-    :: ( Member Code r
+    :: ( Member Bullets r
+       , Member Code r
        , Member Slide r
        , Member Trace r
        )
@@ -28,5 +30,16 @@ slideDeck = do
         fmap f (Impure z) = Impure $ fmap (fmap f) z
       |]
 
+  slide "Test Prose" $ do
+    [bullets|
+      So there I was.
+
+      Just waiting.
+
+      Cool. It seems to work.
+      I'm great.
+    |]
+
 main :: IO ()
-main = runM . runPrintSlides . runPrintCode . runTraceIO $ slideDeck
+main = runM . runPrintSlides . runPrintCode . runTraceIO . runPrintBullets $ slideDeck
+
