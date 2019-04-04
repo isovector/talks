@@ -1,0 +1,69 @@
+name:                making-a-splash
+version:             0.1.0.0
+github:              "isovector/making-a-splash"
+license:             BSD3
+author:              "Sandy Maguire"
+maintainer:          "sandy@sandymaguire.me"
+copyright:           "2019 Sandy Maguire"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/isovector/making-a-splash#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- polysemy
+- haskell-src-exts-simple
+- haskell-src-exts-qq
+- template-haskell
+
+library:
+  source-dirs: src
+  default-extensions:
+    - DataKinds
+    - DeriveFunctor
+    - FlexibleContexts
+    - GADTs
+    - LambdaCase
+    - PolyKinds
+    - RankNTypes
+    - ScopedTypeVariables
+    - StandaloneDeriving
+    - TypeApplications
+    - TypeOperators
+
+    - UnicodeSyntax
+  ghc-options:
+    - -Wall
+
+
+executables:
+  making-a-splash-exe:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - making-a-splash
+
+tests:
+  making-a-splash-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - making-a-splash
