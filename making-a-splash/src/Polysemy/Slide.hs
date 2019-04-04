@@ -6,6 +6,7 @@ import Polysemy
 import Polysemy.Effect.New
 import Polysemy.Utils
 
+
 data Slide m a
   = ∀ x. Slide String (m x) (x -> a)
 
@@ -21,7 +22,7 @@ makeSemantic ''Slide
 runPrintSlides :: Member (Lift IO) r => InterpreterOf r Slide
 runPrintSlides = interpret $ \case
   Slide t m k -> do
-    sendM $ putStrLn $ "# " ++ t ++ "\n"
+    sendM $ putStrLn $ "\n\n\n# " ++ t ++ "\n"
     a <- runPrintSlides m
     pure $ k a
 

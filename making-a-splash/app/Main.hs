@@ -17,6 +17,23 @@ slideDeck
        )
     => Semantic r ()
 slideDeck = do
+  slide "" $ do
+    [bullets|
+      Making a Splash
+
+      A talk by Sandy Maguire
+
+      https://reasonablypolymorphic.com/talks/making-a-splash
+    |]
+
+  slide "" [bullets|
+    "I'm not SPJ, so who am I to work on this?"
+  |]
+
+  slide "" [bullets|
+    But who is SPJ other than a guy who decided to do it?
+  |]
+
   slide "Free Monads" $ do
     [decs|
       data Free f a
@@ -39,6 +56,7 @@ slideDeck = do
       Cool. It seems to work.
       I'm great.
     |]
+
 
 main :: IO ()
 main = runM . runPrintSlides . runPrintCode . runTraceIO . runPrintBullets $ slideDeck

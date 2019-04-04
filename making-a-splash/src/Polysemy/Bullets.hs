@@ -23,8 +23,9 @@ bullets = sendQQ 'bulletPoints paragraphs
 
 runPrintBullets :: Member (Lift IO) r => InterpreterOf r Bullets
 runPrintBullets = interpret $ \case
-  BulletPoints points k -> do
+  BulletPoints points k -> sendM $ do
     for_ points $ \p ->
-      sendM . putStrLn $ "* " ++ p
+      putStrLn $ "* " ++ p
+    putStrLn ""
     pure k
 

@@ -12,14 +12,20 @@ type InterpreterOf r e = ∀ a. Semantic (e ': r) a -> Semantic r a
 
 
 sendQQ :: TH.Name -> QuasiQuoter -> QuasiQuoter
-sendQQ n qq = QuasiQuoter
+sendQQ = liftQQ . pure . TH.VarE
+
+
+liftQQ :: TH.Q TH.Exp -> QuasiQuoter -> QuasiQuoter
+liftQQ qe qq = QuasiQuoter
   { quoteExp = \str -> do
       z <- quoteExp qq str
-      pure $ TH.AppE (TH.VarE n) z
+      e <- qe
+      pure $ TH.AppE e z
   , quotePat = error "bad qq"
   , quoteType = error "bad qq"
   , quoteDec = error "bad qq"
   }
+
 
 paragraphs :: QuasiQuoter
 paragraphs = QuasiQuoter
@@ -30,6 +36,7 @@ paragraphs = QuasiQuoter
   , quoteType = error "bad qq"
   , quoteDec = error "bad qq"
   }
+
 
 textToParagraphs :: String -> [String]
 textToParagraphs str =
