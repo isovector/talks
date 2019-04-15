@@ -12,8 +12,8 @@ data Teletype k
 instance Monad Teletype where
   return = Pure
   Pure          k >>= f = f k
-  WriteLine msg k >>= f = WriteLine msg \$ k >>= f
-  ReadLine      k >>= f = ReadLine \$ \\str -> k str >>= f
+  WriteLine msg k >>= f = WriteLine msg $ k >>= f
+  ReadLine      k >>= f = ReadLine $ \str -> k str >>= f
 ```
 
 ----
@@ -21,8 +21,8 @@ instance Monad Teletype where
 ```haskell
 echo :: Teletype ()
 echo = ReadLine
-     \$ \msg -> WriteLine msg
-     \$ Pure ()
+     $ \msg -> WriteLine msg
+     $ Pure ()
 ```
 
 ----
@@ -31,7 +31,7 @@ echo = ReadLine
 echo :: Teletype ()
 echo = do
   msg <- ReadLine pure
-  WriteLine msg \$ pure ()
+  WriteLine msg $ pure ()
 ```
 
 ----
@@ -44,7 +44,7 @@ runTeletypeInIO (WriteLine msg k) = do
   runTeletypeInIO k
 runTeletypeInIO (ReadLine k) =  do
   msg <- getLine
-  runTeletypeInIO \$ k msg
+  runTeletypeInIO $ k msg
 ```
 
 ----
@@ -55,8 +55,8 @@ runTeletypePurely _ (Pure a) = ([], a)
 runTeletypePurely ls (WriteLine msg k) =
   let (rs, a) = runTeletypePurely ls k
    in (msg : rs, a)
-runTeletypePurely []       (ReadLine k) =  runTeletypePurely [] \$ k ""
-runTeletypePurely (l : ls) (ReadLine k) =  runTeletypePurely ls \$ k l
+runTeletypePurely []       (ReadLine k) =  runTeletypePurely [] $ k ""
+runTeletypePurely (l : ls) (ReadLine k) =  runTeletypePurely ls $ k l
 ```
 
 ----
@@ -74,7 +74,7 @@ data Free f k
 instance Functor f => Monad (Free f) where
   return = Pure
   Pure k   >>= f = f k
-  Impure z >>= f = Impure \$ fmap (\x -> x >>= f) z
+  Impure z >>= f = Impure $ fmap (\x -> x >>= f) z
 ```
 
 ----
@@ -89,11 +89,11 @@ data Teletype a
 ----
 
 ```haskell
-writeLine :: String -> Free Teletype' ()
-writeLine msg = Impure \$ WriteLine' msg \$ pure ()
+writeLine :: String -> Free Teletype ()
+writeLine msg = Impure $ WriteLine msg $ pure ()
 
-readLine :: Free Teletype' String
-readLine = Impure \$ ReadLine' pure
+readLine :: Free Teletype String
+readLine = Impure $ ReadLine pure
 ```
 
 ----
@@ -101,7 +101,7 @@ readLine = Impure \$ ReadLine' pure
 -- TODO(sandy): remove the trailing ticks in this file
 
 ```haskell
-echo :: Free Teletype' ()
+echo :: Free Teletype ()
 echo = do
   msg <- readLine
   writeLine msg
@@ -115,21 +115,21 @@ runFree
     => (∀ x. f x -> m x)
     -> Free f a
     -> m a
-runFree _ (Pure' a)  = pure a
+runFree _ (Pure a)  = pure a
 runFree f (Impure k) = f k >>= runFree f
 ```
 
 ----
 
 ```haskell
-runTeletypeInIO' :: Free Teletype' a -> IO a
-runTeletypeInIO' = runFree \$ \case
-  WriteLine' msg k -> do
+runTeletypeInIO :: Free Teletype a -> IO a
+runTeletypeInIO = runFree $ \case
+  WriteLine msg k -> do
     putStrLn msg
     pure k
-  ReadLine' k -> do
+  ReadLine k -> do
     msg <- getLine
-    pure \$ k msg
+    pure $ k msg
 ```
 
 ----
@@ -154,14 +154,14 @@ type TeletypeWithBell = Sum Teletype Bell
 ----
 
 ```haskell
-writeLine' :: String -> Free TeletypeWithBell ()
-writeLine' msg = Impure \$ L \$ WriteLine' msg \$ pure ()
+writeLine :: String -> Free TeletypeWithBell ()
+writeLine msg = Impure $ L $ WriteLine msg $ pure ()
 
-readLine' :: Free TeletypeWithBell String
-readLine' = Impure \$ L \$ ReadLine' pure
+readLine :: Free TeletypeWithBell String
+readLine = Impure $ L $ ReadLine pure
 
 ringBell :: Free TeletypeWithBell ()
-ringBell = Impure \$ R \$ RingBell \$ pure ()
+ringBell = Impure $ R $ RingBell $ pure ()
 ```
 
 ----
@@ -169,7 +169,7 @@ ringBell = Impure \$ R \$ RingBell \$ pure ()
 ```haskell
 ringItSingIt :: Free TeletypeWithBell String
 ringItSingIt = do
-  msg <- readLine'
+  msg <- readLine
   when (msg == "ring the bell!") ringBell
   pure msg
 ```
@@ -187,14 +187,14 @@ class Member f r where
 ----
 
 ```haskell
-writeLine'' :: Member Teletype' r => String -> Free (Union r) ()
-writeLine'' msg = Impure \$ inj \$ WriteLine' msg \$ pure ()
+writeLine :: Member Teletype r => String -> Free (Union r) ()
+writeLine msg = Impure $ inj $ WriteLine msg $ pure ()
 
-readLine'' :: Member Teletype' r => Free (Union r) String
-readLine'' = Impure \$ inj \$ ReadLine' pure
+readLine :: Member Teletype r => Free (Union r) String
+readLine = Impure $ inj $ ReadLine pure
 
-ringBell'' :: Member Bell r => Free (Union r) ()
-ringBell'' = Impure \$ inj \$ RingBell \$ pure ()
+ringBell :: Member Bell r => Free (Union r) ()
+ringBell = Impure $ inj $ RingBell $ pure ()
 ```
 
 ----
@@ -212,15 +212,15 @@ runFree
     -> m a
 ```
 
-What if we just GADT'd it?
+What if we just GADTd it?
 
 ```haskell
-data Teletype'' a where
-  WriteLine'' :: String -> Teletype'' ()
-  ReadLine''  :: Teletype'' String
+data Teletype a where
+  WriteLine :: String -> Teletype ()
+  ReadLine  :: Teletype String
 
-data Bell'' a where
-  RingBell'' :: Bell'' ()
+data Bell a where
+  RingBell :: Bell ()
 ```
 
 No more \ty{Functor}s!
@@ -265,14 +265,14 @@ runFreer nt m = unFreer m nt
 
 ```haskell
 instance Monad (Freer f) where
-  return a = Freer \$ \nt -> pure a
-  m >>= f  = Freer \$ \nt -> do
+  return a = Freer $ \nt -> pure a
+  m >>= f  = Freer $ \nt -> do
     a <- runFreer m nt
     runFreer (f a) nt
 
 instance (Monad m) => Monad (ReaderT r m) where
-  return a = ReaderT \$ \r -> pure a
-  m >>= k  = ReaderT \$ \r -> do
+  return a = ReaderT $ \r -> pure a
+  m >>= k  = ReaderT $ \r -> do
     a <- runReaderT m r
     runReaderT (k a) r
 ```
@@ -281,20 +281,20 @@ instance (Monad m) => Monad (ReaderT r m) where
 
 ```haskell
 liftFreer :: Member f r => f a -> Freer r a
-liftFreer fa = Freer \$ \nt -> nt \$ inj fa
+liftFreer fa = Freer $ \nt -> nt $ inj fa
 ```
 
 ----
 
 ```haskell
-writeLine''' :: Member Teletype'' r => String -> Freer r ()
-writeLine''' msg = liftFreer \$ WriteLine'' msg
+writeLine' :: Member Teletype r => String -> Freer r ()
+writeLine' msg = liftFreer $ WriteLine msg
 
-readLine''' :: Member Teletype'' r => Freer r String
-readLine''' = liftFreer ReadLine''
+readLine' :: Member Teletype r => Freer r String
+readLine' = liftFreer ReadLine
 
-ringBell''' :: Member Bell'' r => Freer r ()
-ringBell''' = liftFreer RingBell''
+ringBell' :: Member Bell r => Freer r ()
+ringBell' = liftFreer RingBell
 ```
 
 ----
@@ -307,8 +307,8 @@ the final monad.
 ---
 
 ```haskell
-echo' :: Member Teletype r => Freer r ()
-echo' = do
+echo :: Member Teletype r => Freer r ()
+echo = do
   msg <- readLine
   writeLine msg
 ```
@@ -325,14 +325,14 @@ echoIO :: IO ()
 echoIO = runFreer runTeletypeInIO echo
 
 echoIO :: IO ()
-echoIO = runFreer runTeletypeInIO \$ do
+echoIO = runFreer runTeletypeInIO $ do
   msg <- readLine
   writeLine msg
 
 echoIO :: IO ()
 echoIO = do
   msg <- runTeletypeInIO readLine
-  runTeletypeInIO \$ writeLine msg
+  runTeletypeInIO $ writeLine msg
 
 echoIO :: IO ()
 echoIO = do
@@ -374,7 +374,7 @@ And to Ollie Charles for pointing out that this thing is just a ReaderT
 
 ----
 
-Let's rewind.
+Lets rewind.
 
 ----
 
@@ -424,10 +424,10 @@ data State s m k
 ----
 
 ```haskell
-data Free' r k
-  = Pure'' k
-  | Impure'' (Union' r (Free' r) k)
-  deriving (Functor, Applicative) via WrappedMonad (Free' r)
+data Free r k
+  = Pure k
+  | Impure (Union r (Free r) k)
+  deriving (Functor, Applicative) via WrappedMonad (Free r)
 ```
 
 ----
@@ -452,27 +452,27 @@ class Effect e where
 
 ```haskell
 instance Effect (State s) where
-  weave tk _ (Get k)   = Get   \$ \s -> k s <\$ tk
-  weave tk _ (Put s k) = Put s \$       k   <\$ tk
+  weave tk _ (Get k)   = Get   $ \s -> k s <$ tk
+  weave tk _ (Put s k) = Put s $       k   <$ tk
 ```
 
 ----
 
 ```haskell
-runState :: s -> Free' (State s ': r) a -> Free' r (s, a)
-runState s (Pure'' a) = pure (s, a)
-runState s (Impure'' u) =
+runState :: s -> Free (State s ': r) a -> Free r (s, a)
+runState s (Pure a) = pure (s, a)
+runState s (Impure u) =
   case decomp u of
-    Left other -> Impure'' \$
+    Left other -> Impure $
       weave (s, ())
-            (\\(s', m) -> runState s' m)
+            (\(s, m) -> runState s m)
             other
     Right (Get k)    -> pure (s,  k s)
-    Right (Put s' k) -> pure (s', k)
+    Right (Put s k) -> pure (s, k)
 
 decomp
-    :: Union' (e ': r) m a
-    -> Either (Union' r m a) (e m a)
+    :: Union (e ': r) m a
+    -> Either (Union r m a) (e m a)
 ```
 
 ----
@@ -481,22 +481,22 @@ decomp
 instance Effect (Error e) where
   weave _ _ (Throw e) = Throw e
   weave tk distrib (Catch try handle k) =
-    Catch (distrib \$ try <\$ tk)
-          (\\e -> distrib \$ handle e <\$ tk)
+    Catch (distrib $ try <$ tk)
+          (\e -> distrib $ handle e <$ tk)
           (fmap k)
 ```
 
 ----
 
 ```haskell
-runError :: Free' (Error e ': r) a -> Free' r (Either e a)
-runError (Pure'' a) = pure \$ Right a
-runError (Impure'' u) =
+runError :: Free (Error e ': r) a -> Free r (Either e a)
+runError (Pure a) = pure $ Right a
+runError (Impure u) =
   case decomp u of
-    Left other -> Impure'' \$
+    Left other -> Impure $
       weave (Right ())
-            (\\case
-              Left e  -> pure \$ Left e
+            (\case
+              Left e  -> pure $ Left e
               Right m -> runError m
             )
             other
@@ -506,23 +506,23 @@ runError (Impure'' u) =
 
 ```haskell
 -- runError continuned
-  Right (Throw e) -> pure \$ Left e
+  Right (Throw e) -> pure $ Left e
 
   Right (Catch try handle k) -> do
     tried <- runError try
     case tried of
-      Right a -> pure \$ Right \$ k a
+      Right a -> pure $ Right $ k a
 
       Left e -> do
-        handled <- runError \$ handle e
+        handled <- runError $ handle e
         case handled of
-          Right a -> pure \$ Right \$ k a
-          Left e' -> pure \$ Left e'
+          Right a -> pure $ Right $ k a
+          Left e -> pure $ Left e
 ```
 
 ----
 
-runState and runError are recursive. GHC won't listen to you if you ask it to
+runState and runError are recursive. GHC wont listen to you if you ask it to
 inline these definitions.
 
 we can break the recursion by hand
@@ -530,19 +530,19 @@ we can break the recursion by hand
 ----
 
 ```haskell
-runState :: s -> Free' (State s ': r) a -> Free' r (s, a)
-runState s (Pure'' a) = pure (s, a)
-runState s (Impure'' u) =
+runState :: s -> Free (State s ': r) a -> Free r (s, a)
+runState s (Pure a) = pure (s, a)
+runState s (Impure u) =
   case decomp u of
-    Left other -> Impure'' \$
+    Left other -> Impure $
       weave (s, ())
-            (\\(s', m) -> runState_b s' m)
+            (\(s, m) -> runState_b s m)
             other
     Right (Get k)    -> pure (s,  k s)
-    Right (Put s' k) -> pure (s', k)
+    Right (Put s k) -> pure (s, k)
 {-# INLINE runState #-}
 
-runState_b :: s -> Free' (State s ': r) a -> Free' r (s, a)
+runState_b :: s -> Free (State s ': r) a -> Free r (s, a)
 runState_b = runState
 {-# NOINLINE runState_b #-}
 ```
