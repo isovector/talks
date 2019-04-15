@@ -1,84 +1,42 @@
-:title: Some1 Like You
-:data-transition-duration: 150
-
-:css: fonts.css
-:css: presentation.css
-
-
-\newenvironment{hs}{.. code:: haskell
-}{}
-\newenvironment{raw}{.. raw:: html
-
-  <pre>}{
-  </pre>
-}
-\newcommand{\$}{\begin{verbatim}$\end{verbatim}}
-\newcommand{\type}[1]{<span class="type">#1</span>}
-
-----
-
-:id: title
-
-.. raw:: html
-
-  <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML'></script>
-
-  <h1>Some1 Like You</h1>
-  <h2>Dependent Pairs in Haskell</h2>
-  <h3>A talk by <span>Sandy Maguire</span></h3>
-  <h4>reasonablypolymorphic.com</h4>
-
-----
-
-Slides available.
-=================
-
-\begin{raw}
-  <h3>reasonablypolymorphic.com/some1-like-you</h3>
-\end{raw}
-
-----
-
-
-\begin{hs}
+```haskell
 data Teletype k
   = Pure k
   | WriteLine String (Teletype k)
   | ReadLine (String -> Teletype k)
   deriving (Functor, Applicative) via WrappedMonad Teletype
-\end{hs}
+```
 
 ----
 
-\begin{hs}
+```haskell
 instance Monad Teletype where
   return = Pure
   Pure          k >>= f = f k
-  WriteLine msg k >>= f = WriteLine msg $ k >>= f
-  ReadLine      k >>= f = ReadLine $ \str -> k str >>= f
-\end{hs}
+  WriteLine msg k >>= f = WriteLine msg \$ k >>= f
+  ReadLine      k >>= f = ReadLine \$ \\str -> k str >>= f
+```
 
 ----
 
-\begin{hs}
+```haskell
 echo :: Teletype ()
 echo = ReadLine
      \$ \msg -> WriteLine msg
      \$ Pure ()
-\end{hs}
+```
 
 ----
 
-\begin{hs}
+```haskell
 echo :: Teletype ()
 echo = do
   msg <- ReadLine pure
-  WriteLine msg $ pure ()
-\end{hs}
+  WriteLine msg \$ pure ()
+```
 
 ----
 
-\begin{hs}
+```haskell
 runTeletypeInIO :: Teletype a -> IO a
 runTeletypeInIO (Pure a) = pure a
 runTeletypeInIO (WriteLine msg k) = do
@@ -86,72 +44,72 @@ runTeletypeInIO (WriteLine msg k) = do
   runTeletypeInIO k
 runTeletypeInIO (ReadLine k) =  do
   msg <- getLine
-  runTeletypeInIO $ k msg
-\end{hs}
+  runTeletypeInIO \$ k msg
+```
 
 ----
 
-\begin{hs}
+```haskell
 runTeletypePurely :: [String] -> Teletype a -> ([String], a)
 runTeletypePurely _ (Pure a) = ([], a)
 runTeletypePurely ls (WriteLine msg k) =
   let (rs, a) = runTeletypePurely ls k
    in (msg : rs, a)
-runTeletypePurely []       (ReadLine k) =  runTeletypePurely [] $ k ""
-runTeletypePurely (l : ls) (ReadLine k) =  runTeletypePurely ls $ k l
-\end{hs}
+runTeletypePurely []       (ReadLine k) =  runTeletypePurely [] \$ k ""
+runTeletypePurely (l : ls) (ReadLine k) =  runTeletypePurely ls \$ k l
+```
 
 ----
 
-\begin{hs}
+```haskell
 data Free f k
   = Pure k
   | Impure (f (Free f k))
   deriving (Functor, Applicative) via WrappedMonad (Free f)
-\end{hs}
+```
 
 ----
 
-\begin{hs}
+```haskell
 instance Functor f => Monad (Free f) where
   return = Pure
   Pure k   >>= f = f k
-  Impure z >>= f = Impure $ fmap (\x -> x >>= f) z
-\end{hs}
+  Impure z >>= f = Impure \$ fmap (\x -> x >>= f) z
+```
 
 ----
 
-\begin{hs}
+```haskell
 data Teletype a
   = WriteLine String a
   | ReadLine (String -> a)
   deriving Functor
-\end{hs}
+```
 
 ----
 
-\begin{hs}
+```haskell
 writeLine :: String -> Free Teletype' ()
-writeLine msg = Impure $ WriteLine' msg $ pure ()
+writeLine msg = Impure \$ WriteLine' msg \$ pure ()
 
 readLine :: Free Teletype' String
-readLine = Impure $ ReadLine' pure
-\end{hs}
+readLine = Impure \$ ReadLine' pure
+```
 
 ----
 
 -- TODO(sandy): remove the trailing ticks in this file
 
-\begin{hs}
+```haskell
 echo :: Free Teletype' ()
 echo = do
   msg <- readLine
   writeLine msg
-\end{hs}
+```
 
 ----
 
-\begin{hs}
+```haskell
 runFree
     :: Monad m
     => (∀ x. f x -> m x)
@@ -159,85 +117,85 @@ runFree
     -> m a
 runFree _ (Pure' a)  = pure a
 runFree f (Impure k) = f k >>= runFree f
-\end{hs}
+```
 
 ----
 
-\begin{hs}
+```haskell
 runTeletypeInIO' :: Free Teletype' a -> IO a
-runTeletypeInIO' = runFree $ \case
+runTeletypeInIO' = runFree \$ \case
   WriteLine' msg k -> do
     putStrLn msg
     pure k
   ReadLine' k -> do
     msg <- getLine
-    pure $ k msg
-\end{hs}
+    pure \$ k msg
+```
 
 ----
 
-\begin{hs}
+```haskell
 data Bell k
   = RingBell k
   deriving Functor
-\end{hs}
+```
 
 ----
 
-\begin{hs}
+```haskell
 data Sum f g a
   = L (f a)
   | R (g a)
   deriving Functor
 
 type TeletypeWithBell = Sum Teletype Bell
-\end{hs}
+```
 
 ----
 
-\begin{hs}
+```haskell
 writeLine' :: String -> Free TeletypeWithBell ()
-writeLine' msg = Impure $ L $ WriteLine' msg $ pure ()
+writeLine' msg = Impure \$ L \$ WriteLine' msg \$ pure ()
 
 readLine' :: Free TeletypeWithBell String
-readLine' = Impure $ L $ ReadLine' pure
+readLine' = Impure \$ L \$ ReadLine' pure
 
 ringBell :: Free TeletypeWithBell ()
-ringBell = Impure $ R $ RingBell $ pure ()
-\end{hs}
+ringBell = Impure \$ R \$ RingBell \$ pure ()
+```
 
 ----
 
-\begin{hs}
+```haskell
 ringItSingIt :: Free TeletypeWithBell String
 ringItSingIt = do
   msg <- readLine'
   when (msg == "ring the bell!") ringBell
   pure msg
-\end{hs}
+```
 
 ----
 
-\begin{hs}
+```haskell
 data Union r a
 
 class Member f r where
   inj  :: f a       -> Union r a
   proj :: Union r a -> Maybe (f a)
-\end{hs}
+```
 
 ----
 
-\begin{hs}
+```haskell
 writeLine'' :: Member Teletype' r => String -> Free (Union r) ()
-writeLine'' msg = Impure $ inj $ WriteLine' msg $ pure ()
+writeLine'' msg = Impure \$ inj \$ WriteLine' msg \$ pure ()
 
 readLine'' :: Member Teletype' r => Free (Union r) String
-readLine'' = Impure $ inj $ ReadLine' pure
+readLine'' = Impure \$ inj \$ ReadLine' pure
 
 ringBell'' :: Member Bell r => Free (Union r) ()
-ringBell'' = Impure $ inj $ RingBell $ pure ()
-\end{hs}
+ringBell'' = Impure \$ inj \$ RingBell \$ pure ()
+```
 
 ----
 
@@ -246,36 +204,36 @@ Various Extensions
 ----
 
 
-\begin{hs}
+```haskell
 runFree
     :: Monad m
     => (∀ x. f x -> m x)
     -> Free f a
     -> m a
-\end{hs}
+```
 
 What if we just GADT'd it?
 
-\begin{hs}
+```haskell
 data Teletype'' a where
   WriteLine'' :: String -> Teletype'' ()
   ReadLine''  :: Teletype'' String
 
 data Bell'' a where
   RingBell'' :: Bell'' ()
-\end{hs}
+```
 
 No more \ty{Functor}s!
 
 ----
 
-\begin{hs}
-newtype ReaderT r m a = ReaderT { runReaderT :: r -> m a }
-\end{hs}
+```haskell
+newtype ReaderT r m a = ReaderT \{ runReaderT :: r -> m a \}
+```
 
 ----
 
-\begin{hs}
+```haskell
 runReader :: Monad m => ReaderT r m a -> r -> m a
 
 runFree
@@ -283,61 +241,61 @@ runFree
     => (∀ x. f x -> m x)
     -> Free f a
     -> m a
-\end{hs}
+```
 
 This thing is a \ty{ReaderT} in disguise!
 
 ----
 
 
-\begin{hs}
+```haskell
 newtype Freer r a = Freer
-  { unFreer
+  \{ unFreer
         :: ∀ m. Monad m
         => (∀ x. Union r x -> m x)
         -> m a
-  }
+  \}
   deriving (Functor, Applicative) via WrappedMonad (Freer r)
 
 runFreer :: Monad m => (∀ x. Union r x -> m x) -> Freer r a -> m a
 runFreer nt m = unFreer m nt
-\end{hs}
+```
 
 ----
 
-\begin{hs}
+```haskell
 instance Monad (Freer f) where
-  return a = Freer $ \nt -> pure a
-  m >>= f  = Freer $ \nt -> do
+  return a = Freer \$ \nt -> pure a
+  m >>= f  = Freer \$ \nt -> do
     a <- runFreer m nt
     runFreer (f a) nt
 
 instance (Monad m) => Monad (ReaderT r m) where
-  return a = ReaderT $ \r -> pure a
-  m >>= k  = ReaderT $ \r -> do
+  return a = ReaderT \$ \r -> pure a
+  m >>= k  = ReaderT \$ \r -> do
     a <- runReaderT m r
     runReaderT (k a) r
-\end{hs}
+```
 
 ----
 
-\begin{hs}
+```haskell
 liftFreer :: Member f r => f a -> Freer r a
-liftFreer fa = Freer $ \nt -> nt $ inj fa
-\end{hs}
+liftFreer fa = Freer \$ \nt -> nt \$ inj fa
+```
 
 ----
 
-\begin{hs}
+```haskell
 writeLine''' :: Member Teletype'' r => String -> Freer r ()
-writeLine''' msg = liftFreer $ WriteLine'' msg
+writeLine''' msg = liftFreer \$ WriteLine'' msg
 
 readLine''' :: Member Teletype'' r => Freer r String
 readLine''' = liftFreer ReadLine''
 
 ringBell''' :: Member Bell'' r => Freer r ()
 ringBell''' = liftFreer RingBell''
-\end{hs}
+```
 
 ----
 
@@ -348,16 +306,16 @@ the final monad.
 
 ---
 
-\begin{hs}
+```haskell
 echo' :: Member Teletype r => Freer r ()
 echo' = do
   msg <- readLine
   writeLine msg
-\end{hs}
+```
 
 ----
 
-\begin{hs}
+```haskell
 echo :: Member Teletype r => Freer r ()
 echo = do
   msg <- readLine
@@ -367,14 +325,14 @@ echoIO :: IO ()
 echoIO = runFreer runTeletypeInIO echo
 
 echoIO :: IO ()
-echoIO = runFreer runTeletypeInIO $ do
+echoIO = runFreer runTeletypeInIO \$ do
   msg <- readLine
   writeLine msg
 
 echoIO :: IO ()
 echoIO = do
   msg <- runTeletypeInIO readLine
-  runTeletypeInIO $ writeLine msg
+  runTeletypeInIO \$ writeLine msg
 
 echoIO :: IO ()
 echoIO = do
@@ -405,7 +363,7 @@ echoIO :: IO ()
 echoIO = do
   msg <- getLine
   putStrLn msg
-\end{hs}
+```
 
 So free!
 
@@ -420,7 +378,7 @@ Let's rewind.
 
 ----
 
-\begin{hs}
+```haskell
 throw
     :: Member (Error e) r
     => e
@@ -431,37 +389,169 @@ catch
     => Semantic r a
     -> (e -> Semantic r a)
     -> Semantic r a
-\end{hs}
+```
 
 ----
 
-\begin{hs}
+```haskell
 data Error e k
   = Throw e
   | ∀ x. Catch (???)
                (e -> ???)
                (x -> k)
-\end{hs}
+```
 
 ----
 
-\begin{hs}
+```haskell
 data Error e m k
   = Throw e
   | ∀ x. Catch (m x)
                (e -> m x)
                (x -> k)
   deriving Functor
-\end{hs}
+```
 
 ----
 
-\begin{hs}
-data Teletype' m a
-  = WriteLine' String a
-  | ReadLine' (String -> a)
+```haskell
+data State s m k
+  = Get (s -> k)
+  | Put s k
   deriving Functor
-\end{hs}
+```
 
 ----
+
+```haskell
+data Free' r k
+  = Pure'' k
+  | Impure'' (Union' r (Free' r) k)
+  deriving (Functor, Applicative) via WrappedMonad (Free' r)
+```
+
+----
+
+What is a functor, really? Just a value in some sort of context.
+
+If the functor itself is existential, the only thing you CAN do with it is fmap;
+not ever inspect or modify the context.
+
+----
+
+```haskell
+class Effect e where
+  weave :: Functor tk
+        => tk ()
+        -> (∀ x. tk (m x) -> n (tk x))
+        -> e m a
+        -> e n (tk a)
+```
+
+----
+
+```haskell
+instance Effect (State s) where
+  weave tk _ (Get k)   = Get   \$ \s -> k s <\$ tk
+  weave tk _ (Put s k) = Put s \$       k   <\$ tk
+```
+
+----
+
+```haskell
+runState :: s -> Free' (State s ': r) a -> Free' r (s, a)
+runState s (Pure'' a) = pure (s, a)
+runState s (Impure'' u) =
+  case decomp u of
+    Left other -> Impure'' \$
+      weave (s, ())
+            (\\(s', m) -> runState s' m)
+            other
+    Right (Get k)    -> pure (s,  k s)
+    Right (Put s' k) -> pure (s', k)
+
+decomp
+    :: Union' (e ': r) m a
+    -> Either (Union' r m a) (e m a)
+```
+
+----
+
+```haskell
+instance Effect (Error e) where
+  weave _ _ (Throw e) = Throw e
+  weave tk distrib (Catch try handle k) =
+    Catch (distrib \$ try <\$ tk)
+          (\\e -> distrib \$ handle e <\$ tk)
+          (fmap k)
+```
+
+----
+
+```haskell
+runError :: Free' (Error e ': r) a -> Free' r (Either e a)
+runError (Pure'' a) = pure \$ Right a
+runError (Impure'' u) =
+  case decomp u of
+    Left other -> Impure'' \$
+      weave (Right ())
+            (\\case
+              Left e  -> pure \$ Left e
+              Right m -> runError m
+            )
+            other
+```
+
+----
+
+```haskell
+-- runError continuned
+  Right (Throw e) -> pure \$ Left e
+
+  Right (Catch try handle k) -> do
+    tried <- runError try
+    case tried of
+      Right a -> pure \$ Right \$ k a
+
+      Left e -> do
+        handled <- runError \$ handle e
+        case handled of
+          Right a -> pure \$ Right \$ k a
+          Left e' -> pure \$ Left e'
+```
+
+----
+
+runState and runError are recursive. GHC won't listen to you if you ask it to
+inline these definitions.
+
+we can break the recursion by hand
+
+----
+
+```haskell
+runState :: s -> Free' (State s ': r) a -> Free' r (s, a)
+runState s (Pure'' a) = pure (s, a)
+runState s (Impure'' u) =
+  case decomp u of
+    Left other -> Impure'' \$
+      weave (s, ())
+            (\\(s', m) -> runState_b s' m)
+            other
+    Right (Get k)    -> pure (s,  k s)
+    Right (Put s' k) -> pure (s', k)
+{-# INLINE runState #-}
+
+runState_b :: s -> Free' (State s ': r) a -> Free' r (s, a)
+runState_b = runState
+{-# NOINLINE runState_b #-}
+```
+
+----
+
+now the inliner is happy
+
+----
+
+
 

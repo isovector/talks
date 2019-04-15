@@ -241,7 +241,6 @@ deriving instance Functor (State s m)
 
 
 class Effect e where
-  -- hoist :: (∀ x. m x -> n x) -> e m a -> e n a
   weave :: Functor tk
         => tk ()
         -> (∀ x. tk (m x) -> n (tk x))
@@ -252,15 +251,77 @@ instance Effect (State s) where
   weave tk _ (Get k)   = Get   $ \s -> k s <$ tk
   weave tk _ (Put s k) = Put s $       k   <$ tk
 
+instance Effect (Error e) where
+  weave _ _ (Throw e) = Throw e
+  weave tk distrib (Catch try handle k) =
+    Catch (distrib $ try <$ tk)
+          (\e -> distrib $ handle e <$ tk)
+          (fmap k)
 
-throw
-    :: Member (Error e) r
-    => e
-    -> Semantic r a
+data Union' (r :: [(* -> *) -> * -> *]) (m :: * -> *) a where
+  Union' :: (IndexOf r n) m a -> Union' r m a
 
-catch
-    :: Member (Error e) r
-    => Semantic r a
-    -> (e -> Semantic r a)
-    -> Semantic r a
+instance Effect (Union' r) where
+  weave _ _ = undefined
+
+class Member' e r where
+  inj'  :: e m a        -> Union' r m a
+  proj' :: Union' r m a -> Maybe (e m a)
+
+decomp
+    :: Union' (e ': r) m a
+    -> Either (Union' r m a)
+              (e m a)
+decomp = undefined
+
+data Free' r k
+  = Pure'' k
+  | Impure'' (Union' r (Free' r) k)
+  deriving (Functor, Applicative) via WrappedMonad (Free' r)
+
+instance Monad (Free' r)
+
+
+runState :: s -> Free' (State s ': r) a -> Free' r (s, a)
+runState s (Pure'' a) = pure (s, a)
+runState s (Impure'' u) =
+  case decomp u of
+    Left other -> Impure'' $
+      weave (s, ())
+            (\(s', m) -> runState s' m)
+            other
+    Right (Get k)    -> pure (s,  k s)
+    Right (Put s' k) -> pure (s', k)
+
+runError :: Free' (Error e ': r) a -> Free' r (Either e a)
+runError (Pure'' a) = pure $ Right a
+runError (Impure'' u) =
+  case decomp u of
+    Left other -> Impure'' $
+      weave (Right ())
+            (\case
+              Left e  -> pure $ Left e
+              Right m -> runError m
+            )
+            other
+
+    Right (Throw e) -> pure $ Left e
+    Right (Catch try handle k) -> do
+      tried <- runError try
+      case tried of
+        Left e -> do
+          handled <- runError $ handle e
+          case handled of
+            Left e' -> pure $ Left e'
+            Right a -> pure $ Right $ k a
+        Right a -> pure $ Right $ k a
+
+
+-- runFree'
+--     :: Monad m
+--     => (∀ x. Union' r (Free' r) x -> m x)
+--     -> Free' r a
+--     -> m a
+-- runFree' _ = undefined
+
 
