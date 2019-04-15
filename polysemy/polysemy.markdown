@@ -1,3 +1,14 @@
+---
+title: "Polysemy: Chasing Performance in Free Monads"
+author: Sandy Maguire
+patat:
+  wrap: true
+  margins:
+    top: 3
+    left: 5
+    right: 5
+---
+
 ```haskell
 data Teletype k
   = Pure k
@@ -228,7 +239,7 @@ No more \ty{Functor}s!
 ----
 
 ```haskell
-newtype ReaderT r m a = ReaderT \{ runReaderT :: r -> m a \}
+newtype ReaderT r m a = ReaderT { runReaderT :: r -> m a }
 ```
 
 ----
@@ -250,15 +261,12 @@ This thing is a \ty{ReaderT} in disguise!
 
 ```haskell
 newtype Freer r a = Freer
-  \{ unFreer
+  { unFreer
         :: ∀ m. Monad m
         => (∀ x. Union r x -> m x)
         -> m a
-  \}
+  }
   deriving (Functor, Applicative) via WrappedMonad (Freer r)
-
-runFreer :: Monad m => (∀ x. Union r x -> m x) -> Freer r a -> m a
-runFreer nt m = unFreer m nt
 ```
 
 ----
@@ -272,9 +280,9 @@ instance Monad (Freer f) where
 
 instance (Monad m) => Monad (ReaderT r m) where
   return a = ReaderT $ \r -> pure a
-  m >>= k  = ReaderT $ \r -> do
+  m >>= f  = ReaderT $ \r -> do
     a <- runReaderT m r
-    runReaderT (k a) r
+    runReaderT (f a) r
 ```
 
 ----
@@ -311,29 +319,48 @@ echo :: Member Teletype r => Freer r ()
 echo = do
   msg <- readLine
   writeLine msg
+
+echoIO :: IO ()
+echoIO = runFreer runTeletypeInIO echo
 ```
 
 ----
 
 ```haskell
-echo :: Member Teletype r => Freer r ()
-echo = do
-  msg <- readLine
-  writeLine msg
-
 echoIO :: IO ()
 echoIO = runFreer runTeletypeInIO echo
+```
 
+----
+
+```haskell
 echoIO :: IO ()
 echoIO = runFreer runTeletypeInIO $ do
   msg <- readLine
   writeLine msg
+```
 
+----
+
+```haskell
 echoIO :: IO ()
 echoIO = do
   msg <- runTeletypeInIO readLine
   runTeletypeInIO $ writeLine msg
+```
 
+----
+
+```haskell
+echoIO :: IO ()
+echoIO = do
+  msg <- runTeletypeInIO ReadLine
+  runTeletypeInIO $ WriteLine msg
+```
+
+----
+
+```haskell
 echoIO :: IO ()
 echoIO = do
   msg <- case ReadLine of
@@ -342,7 +369,11 @@ echoIO = do
   case WriteLine msg of
     ReadLine -> getLine
     WriteLine msg -> putStrLn msg
+```
 
+----
+
+```haskell
 echoIO :: IO ()
 echoIO = do
   msg <- case ReadLine of
@@ -351,14 +382,22 @@ echoIO = do
   case WriteLine msg of
     -- ReadLine -> getLine
     WriteLine msg -> putStrLn msg
+```
 
+----
+
+```haskell
 echoIO :: IO ()
 echoIO = do
   msg <- case ReadLine of
            ReadLine      -> getLine
   case WriteLine msg of
     WriteLine msg -> putStrLn msg
+```
 
+----
+
+```haskell
 echoIO :: IO ()
 echoIO = do
   msg <- getLine
