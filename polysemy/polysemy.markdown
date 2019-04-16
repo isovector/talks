@@ -9,6 +9,222 @@ patat:
     right: 5
 ---
 
+A webserver that does what.
+
+---
+
+```haskell
+ingest
+    :: ( Member (Input Record) r
+       , Member (Output Record) r
+       , Member (Output Stat) r
+       )
+    => Eff r ()
+ingest = input >>= \case
+  Nothing     -> pure ()
+  Just record -> do
+    output record
+    output ProcessedRecordStat
+    ingest
+```
+
+---
+
+```haskell
+main = ingest
+
+```
+
+> Open Effects:
+>
+> { Input Record, Output Record, Output Stat }
+
+---
+
+```haskell
+main = ingest
+     & csvInput "file.csv"
+
+```
+
+> Open Effects:
+>
+> { FileProvider, Output Record, Output Stat }
+
+---
+
+```haskell
+main = ingest
+     & csvInput "file.csv"
+     & decryptFileProvider
+```
+
+> Open Effects:
+>
+> { FileProvider, Output Record, Output Stat, Encryption }
+
+---
+
+```haskell
+main = ingest
+     & csvInput "file.csv"
+     & decryptFileProvider
+     & ftpFileProvider
+```
+
+> Open Effects:
+>
+> { FTP, Output Record, Output Stat, Encryption }
+
+---
+
+```haskell
+main = ingest
+     & csvInput "file.csv"
+     & decryptFileProvider
+     & ftpFileProvider
+     & batch      @Record 500
+```
+
+> Open Effects:
+>
+> { FTP, Output [Record], Output Stat, Encryption }
+
+---
+
+```haskell
+main = ingest
+     & csvInput "file.csv"
+     & decryptFileProvider
+     & ftpFileProvider
+     & batch      @Record 500
+     & postOutput @Record mkApiCall
+
+```
+
+> Open Effects:
+>
+> { FTP, HTTP, Output Stat, Encryption }
+
+---
+
+```haskell
+main = ingest
+     & csvInput "file.csv"
+     & decryptFileProvider
+     & ftpFileProvider
+     & batch      @Record 500
+     & postOutput @Record mkApiCall
+     & redisOuput @Stat   mkRedisKey
+```
+
+> Open Effects:
+>
+> {FTP, HTTP, Encryption, Redis}
+
+---
+
+```haskell
+main = ingest
+     & csvInput "file.csv"
+     & decryptFileProvider
+     & ftpFileProvider
+     & batch      @Record 500
+     & postOutput @Record mkApiCall
+     & redisOuput @Stat   mkRedisKey
+     & runEncryption
+
+```
+
+> Open Effects:
+>
+> { FTP, HTTP, Redis}
+
+---
+
+```haskell
+main = ingest
+     & csvInput "file.csv"
+     & decryptFileProvider
+     & ftpFileProvider
+     & batch      @Record 500
+     & postOutput @Record mkApiCall
+     & redisOuput @Stat   mkRedisKey
+     & runEncryption
+     & runHTTP
+
+```
+
+> Open Effects:
+>
+> { FTP, Redis }
+
+---
+
+```haskell
+main = ingest
+     & csvInput "file.csv"
+     & decryptFileProvider
+     & ftpFileProvider
+     & batch      @Record 500
+     & postOutput @Record mkApiCall
+     & redisOuput @Stat   mkRedisKey
+     & runEncryption
+     & runHTTP
+     & runFTP
+
+```
+
+> Open Effects:
+>
+> { Redis }
+
+---
+
+```haskell
+main = ingest
+     & csvInput "file.csv"
+     & decryptFileProvider
+     & ftpFileProvider
+     & batch      @Record 500
+     & postOutput @Record mkApiCall
+     & redisOuput @Stat   mkRedisKey
+     & runEncryption
+     & runHTTP
+     & runFTP
+     & runRedis
+```
+
+> Open Effects:
+>
+> { }
+
+---
+
+```haskell
+main = ingest
+     & csvInput "file.csv"
+     & decryptFileProvider
+     & ftpFileProvider
+     & batch      @Record 500
+     & postOutput @Record mkApiCall
+     & redisOuput @Stat   mkRedisKey
+     & runEncryption
+     & runHTTP
+     & runFTP
+     & runRedis
+     & runM
+
+```
+
+---
+
+coudl have doen this purely example
+
+15m
+
+---
+
 ```haskell
 data Teletype k
   = Pure k
@@ -292,6 +508,10 @@ liftFreer :: Member f r => f a -> Freer r a
 liftFreer fa = Freer $ \nt -> nt $ inj fa
 ```
 
+---
+
+show GADTING
+
 ----
 
 ```haskell
@@ -490,6 +710,8 @@ class Effect e where
 
 ----
 
+describe icecream cone
+
 ```haskell
 instance Effect (State s) where
   weave tk _ (Get k)   = Get   $ \s -> k s <$ tk
@@ -505,10 +727,10 @@ runState s (Impure u) =
   case decomp u of
     Left other -> Impure $
       weave (s, ())
-            (\(s, m) -> runState s m)
+            (\(s', m) -> runState s' m)
             other
     Right (Get k)    -> pure (s,  k s)
-    Right (Put s k) -> pure (s, k)
+    Right (Put s' k) -> pure (s', k)
 
 decomp
     :: Union (e ': r) m a
@@ -674,6 +896,8 @@ We can clean up the mess of writing effect handlers...
 ...with an effect-handler effect!
 
 ---
+
+give an example of what it looks like
 
 ```haskell
 data Tactics tk n r m a where
