@@ -261,7 +261,7 @@ This thing is a \ty{ReaderT} in disguise!
 
 ```haskell
 newtype Freer r a = Freer
-  { unFreer
+  { runFreer
         :: ∀ m. Monad m
         => (∀ x. Union r x -> m x)
         -> m a
@@ -409,6 +409,7 @@ So free!
 ----
 
 Shoutouts to Li-Yao Xia for the final encoding
+
 And to Ollie Charles for pointing out that this thing is just a ReaderT
 
 ----
@@ -514,54 +515,7 @@ decomp
     -> Either (Union r m a) (e m a)
 ```
 
-----
-
-```haskell
-instance Effect (Error e) where
-  weave _ _ (Throw e) = Throw e
-  weave tk distrib (Catch try handle k) =
-    Catch (distrib $ try <$ tk)
-          (\e -> distrib $ handle e <$ tk)
-          (fmap k)
-```
-
-----
-
-```haskell
-runError :: Free (Error e ': r) a -> Free r (Either e a)
-runError (Pure a) = pure $ Right a
-runError (Impure u) =
-  case decomp u of
-    Left other -> Impure $
-      weave (Right ())
-            (\case
-              Left e  -> pure $ Left e
-              Right m -> runError m
-            )
-            other
-```
-
-----
-
-```haskell
--- runError continuned
-  Right (Throw e) -> pure $ Left e
-
-  Right (Catch try handle k) -> do
-    tried <- runError try
-    case tried of
-      Right a -> pure $ Right $ k a
-
-      Left e -> do
-        handled <- runError $ handle e
-        case handled of
-          Right a -> pure $ Right $ k a
-          Left e -> pure $ Left e
-```
-
-----
-
-runState and runError are recursive. GHC wont listen to you if you ask it to
+runState is recursive. GHC wont listen to you if you ask it to
 inline these definitions.
 
 we can break the recursion by hand
@@ -592,5 +546,280 @@ now the inliner is happy
 
 ----
 
+higher order effects are key, because without them people complain "you can't
+even write bracket"
+
+----
+
+There are two problems here.
+
+----
+
+1) Writing `Effect` instances is boilerplate!
+2) `weave` changes the return type :(
+
+----
+
+Problem 1
+
+```haskell
+data Yo e m a where
+  Yo :: Functor tk
+     => e m a
+     -> tk ()
+     -> (forall x. tk (m x) -> n (tk x))
+     -> (tk a -> b)
+     -> Yo e n b
+```
+
+`Yo` is the free `Effect`!
+
+----
+
+```haskell
+liftYo :: Functor m => e m a -> Yo e m a
+liftYo e = Yo e (Identity ())
+                (fmap Identity . runIdentity)
+                runIdentity
+```
+
+----
+
+```haskell
+instance Effect (Yo e) where
+  weave tk' distrib' (Yo e tk distrib f) =
+    Yo e (Compose $ tk <$ tk')
+         (fmap Compose . distrib' . fmap distrib . getCompose)
+         (fmap f . getCompose)
+```
+
+----
+
+Somewhat amazingly, this works!
+
+But all it means is we've delayed giving a meaning for `Effect` until we need to
+interpret it.
+
+----
+
+Problem 2
+
+The type of `runFreer` doesn't allow us to change the return type.
+
+```haskell
+runFreer
+    :: ∀ m. Monad m
+    => (∀ x. Union r (Freer r) x -> m x)
+    -> m a
+```
+
+----
+
+Non-solutions
+
+```haskell
+runFreer
+    :: ∀ m tk. (Monad m, Functor tk)
+    => (∀ x. Union r (Freer r) x -> m (tk x))
+    -> m (tk a)
+```
+
+Unfortunately this is no longer a `Monad`!
+
+----
+
+Recall that we're allowed to pick *any* `Monad`.
+
+Instead of evaluating to the final monad `m`...
+
+----
+
+Just transform it into `StateT s m` and immediately evaluate *that*!
+
+```haskell
+import qualified Control.Monad.Trans.State as S
+
+runState
+    :: s
+    -> Semantic (e ': r) a
+    -> Semantic r (s, a)
+runState s (Semantic m) = Semantic $ \nt ->
+  S.runStateT s $ m $ \u ->
+    case decomp u of
+      Left x -> S.StateT $ \s' ->
+        nt . weave (s', ()) (uncurry $ runState f)
+           $ x
+      Right (Yo Get _ f)      -> fmap f $ S.get
+      Right (Yo (Put s') _ f) -> fmap f $ S.put s'
+```
+
+----
+
+We've solved all of the problems.
+
+But what we've built isn't yet a joyful experience.
+
+In particular, dealing with `Yo` is painful.
+
+----
+
+We can clean up the mess of writing effect handlers...
+
+. . .
+
+...
+
+. . .
+
+...with an effect-handler effect!
+
+---
+
+```haskell
+data Tactics tk n r m a where
+  GetInitialState     :: Tactics tk n r m (tk ())
+  HoistInterpretation :: (a -> n b)
+                      -> Tactics tk n r m (tk a -> Semantic r (tk b))
+```
+
+- `GetInitialState` is the `tk ()` parameter
+
+. . .
+
+- `HoistInterpretation` is the distribution law
+
+----
+
+```haskell
+type WithTactics e tk m r = Tactics tk m (e ': r) ': r
+```
+
+. . .
+
+```haskell
+pureT
+   :: a
+   -> Semantic (WithTactics e tk m r) (tk a)
+
+runT
+    :: m a
+    -> Semantic (WithTactics e tk m r)
+                (Semantic (e ': r) (tk a))
+
+bindT
+    :: (a -> m b)
+    -> Semantic (WithTactics e tk m r)
+                (tk a -> Semantic (e ': r) (tk b))
+```
+
+----
+
+This is where we stop. We've now simultaneously solved the boilerplate and
+performance problems, as well as put a friendly UX around the whole thing.
+
+----
+
+I'd like to leave you with a comparison.
+
+First, `fused-effects`, the incumbent library, and it's implementation of the
+`Resource` effect:
+
+----
+
+```haskell
+
+data Resource m k
+  = forall resource any output.
+      Resource (m resource)
+               (resource -> m any)
+               (resource -> m output)
+               (output -> k)
+
+deriving instance Functor (Resource m)
+
+instance HFunctor Resource where
+  hmap f (Resource acquire release use k) =
+    Resource (f acquire) (f . release) (f . use) k
+
+instance Effect Resource where
+  handle state handler (Resource acquire release use k)
+    = Resource (handler (acquire <$ state))
+               (handler . fmap release)
+               (handler . fmap use)
+               (handler . fmap k)
+
+bracket :: (Member Resource sig, Carrier sig m)
+        => m resource
+        -> (resource -> m any)
+        -> (resource -> m a)
+        -> m a
+bracket acquire release use =
+  send (Resource acquire release use pure)
+
+runResource :: (forall x . m x -> IO x)
+            -> ResourceC m a
+            -> m a
+runResource handler = runReader (Handler handler) . runResourceC
+
+newtype ResourceC m a = ResourceC
+  { runResourceC :: ReaderC (Handler m) m a
+  }
+  deriving ( Alternative, Applicative, Functor, Monad, MonadFail, MonadIO, MonadPlus)
+
+instance MonadTrans ResourceC where
+  lift = ResourceC . lift
+
+newtype Handler m = Handler (forall x . m x -> IO x)
+
+runHandler :: Handler m -> ResourceC m a -> IO a
+runHandler h@(Handler handler) = handler . runReader h . runResourceC
+
+instance (Carrier sig m, MonadIO m) =>
+      Carrier (Resource :+: sig) (ResourceC m) where
+  eff (L (Resource acquire release use k)) = do
+    handler <- ResourceC ask
+    a <- liftIO (Exc.bracket
+      (runHandler handler acquire)
+      (runHandler handler . release)
+      (runHandler handler . use))
+    k a
+  eff (R other) = ResourceC (eff (R (handleCoercible other)))
+```
+
+----
+
+Compare to `polysemy`:
+
+----
+
+
+```haskell
+
+data Resource m a where
+  Bracket :: m a -> (a -> m ()) -> (a -> m b) -> Resource m b
+
+makeSemantic ''Resource
+
+
+runResource
+    :: Member (Lift IO) r
+    => (∀ x. Semantic r x -> IO x)
+    -> Semantic (Resource ': r) a
+    -> Semantic r a
+runResource finish = interpretH $ \case
+  Bracket alloc dealloc use -> do
+    a <- runT  alloc
+    d <- bindT dealloc
+    u <- bindT use
+
+    let runIt = finish .@ runResource
+    sendM $ X.bracket (runIt a) (runIt . d) (runIt . u)
+```
+
+----
+
+Thanks for listening!
+
+Questions?
 
 

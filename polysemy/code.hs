@@ -272,6 +272,7 @@ decomp
     :: Union' (e ': r) m a
     -> Either (Union' r m a)
               (e m a)
+
 decomp = undefined
 
 data Free' r k
@@ -315,6 +316,9 @@ runError (Impure'' u) =
             Left e' -> pure $ Left e'
             Right a -> pure $ Right $ k a
         Right a -> pure $ Right $ k a
+
+
+
 
 
 -- runFree'
