@@ -886,8 +886,6 @@ runFreer
 
 **`Freer` is just `ReaderT` in disguise!**
 
-Shoutouts to Ollie Charles for pointing this out to me.
-
 ----
 
 The proof:
@@ -1071,21 +1069,26 @@ writeLine msg = Impure $ inj $ WriteLine msg $ pure ()
 
 ----
 
+An effect we'd like, but can't have:
+
 ```haskell
 throw
     :: Member (Error e) r
     => e
-    -> Semantic r a
+    -> Free r a
 
 catch
     :: Member (Error e) r
-    => Semantic r a
-    -> (e -> Semantic r a)
-    -> Semantic r a
+    => Free r a
+    -> (e -> Free r a)
+    -> Free r a
 ```
+
+`catch` contains an embedded `Free`.
 
 ----
 
+What we'd like:
 ```haskell
 data Error e k
   = Throw e
@@ -1096,41 +1099,89 @@ data Error e k
 
 ----
 
+Maybe
+
+```haskell
+data Error e r k
+  = Throw e
+  | ∀ x. Catch (Free r x)
+               (e -> Free r x)
+               (x -> k)
+```
+
+?
+
+. . .
+
+Unfortunately this type cannot be embedded inside a `Union` :(
+
+----
+
+Instead:
+
 ```haskell
 data Error e m k
   = Throw e
   | ∀ x. Catch (m x)
                (e -> m x)
                (x -> k)
-  deriving Functor
+```
+
+. . .
+
+Just force `m` to be `Free r`:
+
+. . .
+
+```haskell
+data Free r a
+  = Pure a
+  | Impure (Union r (Free r) a)
+
+liftFree :: Member f r => f (Free r) (Free r a) -> Free r a
 ```
 
 ----
+
+Effects don't need to use `m` if they don't want to.
 
 ```haskell
 data State s m k
   = Get (s -> k)
   | Put s k
-  deriving Functor
 ```
 
 ----
 
-```haskell
-data Free r k
-  = Pure k
-  | Impure (Union r (Free r) k)
-  deriving (Functor, Applicative) via WrappedMonad (Free r)
-```
+## The Problem
+
+How do `State` and `Error` interact?
+
+. . .
+
+How can we thread state changes through a `Catch` action?
 
 ----
 
-What is a functor, really? Just a value in some sort of context.
+## The Solution: Functors!
 
-If the functor itself is existential, the only thing you CAN do with it is fmap;
-not ever inspect or modify the context.
+. . .
+
+What is a functor, really?
+
+. . .
+
+Just a value in some sort of context.
+
+. . .
+
+In particular, a value of `f ()` is *only* a context!
 
 ----
+
+We can abuse this fact, and wrap up the state of the world as some functor.
+
+. . .
 
 ```haskell
 class Effect e where
@@ -1141,17 +1192,46 @@ class Effect e where
         -> e n (tk a)
 ```
 
+. . .
+
+* `tk ()` is the state of the world when the effect starts
+
+* `(∀ x. tk (m x) -> n (tk x))` is a distribution law for describing how to run
+  effects in a context.
+
+. . .
+
+`weave` allows an effect to have other effects "pushed through it."
+
 ----
 
-describe icecream cone
+Weaving through `Error`:
 
 ```haskell
-instance Effect (State s) where
-  weave tk _ (Get k)   = Get   $ \s -> k s <$ tk
-  weave tk _ (Put s k) = Put s $       k   <$ tk
+instance Effect (Error e) where
+  weave _ _ (Throw e) = Throw e
+  weave tk distrib (Catch try handle k) =
+    Catch (distrib $ try <$ tk)
+          (\e -> distrib $ handle e <$ tk)
+          (fmap k)
+```
+
+. . .
+
+The "ice-cream cone" operator replaces the contents of a `Functor`:
+
+```haskell
+(<$) :: Functor f => a -> f b -> f a
 ```
 
 ----
+
+The `State` effect needs to push its state through other effects'
+subcomputations.
+
+It can call `weave` to do this.
+
+. . .
 
 ```haskell
 runState :: s -> Free (State s ': r) a -> Free r (s, a)
@@ -1164,18 +1244,38 @@ runState s (Impure u) =
             other
     Right (Get k)    -> pure (s,  k s)
     Right (Put s' k) -> pure (s', k)
+```
 
+. . .
+
+`decomp` can extract a single effect out of a `Union`; or prove that it was
+never there to begin with.
+
+. . .
+
+```haskell
 decomp
     :: Union (e ': r) m a
     -> Either (Union r m a) (e m a)
 ```
 
-runState is recursive. GHC wont listen to you if you ask it to
-inline these definitions.
+----
 
-we can break the recursion by hand
+Surprisingly, this thing works!
+
+. . .
+
+But it's slow.
+
+. . .
+
+Because `runState` is recursive, GHC won't perform any optimizations on it :(
+
+
 
 ----
+
+We can "break the recursion" by hand.
 
 ```haskell
 runState :: s -> Free (State s ': r) a -> Free r (s, a)
@@ -1189,33 +1289,37 @@ runState s (Impure u) =
     Right (Get k)    -> pure (s,  k s)
     Right (Put s k) -> pure (s, k)
 {-# INLINE runState #-}
+```
 
+. . .
+```haskell
 runState_b :: s -> Free (State s ': r) a -> Free r (s, a)
 runState_b = runState
 {-# NOINLINE runState_b #-}
 ```
 
-----
+. . .
 
-now the inliner is happy
-
-----
-
-higher order effects are key, because without them people complain "you can't
-even write bracket"
+Now GHC is happy and will make our program **fast**!
 
 ----
 
-There are two problems here.
+Lots of the boilerplate in `fused-effects` comes from needing to write `Effect`
+instances.
+
+. . .
+
+But these instances are necessary for higher-order effects!
+
+. . .
+
+Are we cursed to always have this boilerplate?
 
 ----
 
-1) Writing `Effect` instances is boilerplate!
-2) `weave` changes the return type :(
+No!
 
-----
-
-Problem 1
+. . .
 
 ```haskell
 data Yo e m a where
@@ -1229,16 +1333,7 @@ data Yo e m a where
 
 `Yo` is the free `Effect`!
 
-----
-
-```haskell
-liftYo :: Functor m => e m a -> Yo e m a
-liftYo e = Yo e (Identity ())
-                (fmap Identity . runIdentity)
-                runIdentity
-```
-
-----
+. . .
 
 ```haskell
 instance Effect (Yo e) where
@@ -1250,40 +1345,59 @@ instance Effect (Yo e) where
 
 ----
 
+And we can get into a `Yo` by using an `Identity` functor as our initial state.
+
+```haskell
+liftYo :: Functor m => e m a -> Yo e m a
+liftYo e = Yo e (Identity ())
+                (fmap Identity . runIdentity)
+                runIdentity
+```
+
+----
+
 Somewhat amazingly, this works!
+
+. . .
 
 But all it means is we've delayed giving a meaning for `Effect` until we need to
 interpret it.
 
 ----
 
-Problem 2
+A problem:
 
-The type of `runFreer` doesn't allow us to change the return type.
+The type of `runFree` doesn't allow us to change the return type.
 
 ```haskell
-runFreer
+runFree
     :: ∀ m. Monad m
-    => (∀ x. Union r (Freer r) x -> m x)
+    => Free r a
+    -> (∀ x. Union r (Free r) x -> m x)
     -> m a
 ```
 
-----
+. . .
 
-Non-solutions
+It seems like maybe we could just stick a functor in here.
+
+. . .
 
 ```haskell
-runFreer
+runFree
     :: ∀ m tk. (Monad m, Functor tk)
-    => (∀ x. Union r (Freer r) x -> m (tk x))
+    => Free r a
+    -> (∀ x. Union r (Freer r) x -> m (tk x))
     -> m (tk a)
 ```
 
-Unfortunately this is no longer a `Monad`!
+. . .
+
+**Unfortunately this is no longer a `Monad`!**
 
 ----
 
-Recall that we're allowed to pick *any* `Monad`.
+Recall that we're allowed to pick *any* `Monad` for the result of `runFree`.
 
 Instead of evaluating to the final monad `m`...
 
@@ -1291,14 +1405,16 @@ Instead of evaluating to the final monad `m`...
 
 Just transform it into `StateT s m` and immediately evaluate *that*!
 
+. . .
+
 ```haskell
 import qualified Control.Monad.Trans.State as S
 
 runState
     :: s
-    -> Semantic (e ': r) a
-    -> Semantic r (s, a)
-runState s (Semantic m) = Semantic $ \nt ->
+    -> Free (e ': r) a
+    -> Free r (s, a)
+runState s (Free m) = Free $ \nt ->
   S.runStateT s $ m $ \u ->
     case decomp u of
       Left x -> S.StateT $ \s' ->
@@ -1310,9 +1426,19 @@ runState s (Semantic m) = Semantic $ \nt ->
 
 ----
 
-We've solved all of the problems.
+We've solved all of the problems! We now have solutions for
+
+* *performance*
+* *expressiveness*
+* *boilerplate*
+
+all of which work together!
+
+. . .
 
 But what we've built isn't yet a joyful experience.
+
+. . .
 
 In particular, dealing with `Yo` is painful.
 
@@ -1330,14 +1456,51 @@ We can clean up the mess of writing effect handlers...
 
 ---
 
-give an example of what it looks like
+Instead of this:
+
+```haskell
+instance Effect (Error e) where
+  weave _ _ (Throw e) = Throw e
+  weave tk distrib (Catch try handle k) =
+    Catch (distrib $ try <$ tk)
+          (\e -> distrib $ handle e <$ tk)
+          (fmap k)
+```
+
+---
+
+We can just write this:
+
+```haskell
+runError = interpretH $ \case
+  Catch try handle -> do
+    t <- runT try
+    tried <- runError t
+    case tried of
+      Right a -> pure $ Right a
+      Left e -> do
+        h <- bindT handle
+        handled <- h e
+        case handled of
+          Right a -> pure $ Right a
+          Left e2 -> pure $ Left e2
+```
+
+The magic is in `runT` and `bindT`.
+
+----
+
+These combinators come from the `Tactics` effect:
+
+. . .
 
 ```haskell
 data Tactics tk n r m a where
   GetInitialState     :: Tactics tk n r m (tk ())
   HoistInterpretation :: (a -> n b)
-                      -> Tactics tk n r m (tk a -> Semantic r (tk b))
+                      -> Tactics tk n r m (tk a -> Free r (tk b))
 ```
+. . .
 
 - `GetInitialState` is the `tk ()` parameter
 
@@ -1356,30 +1519,40 @@ type WithTactics e tk m r = Tactics tk m (e ': r) ': r
 ```haskell
 pureT
    :: a
-   -> Semantic (WithTactics e tk m r) (tk a)
-
+   -> Free (WithTactics e tk m r) (tk a)
+```
+. . .
+```haskell
 runT
     :: m a
-    -> Semantic (WithTactics e tk m r)
-                (Semantic (e ': r) (tk a))
+    -> Free (WithTactics e tk m r)
+                (Free (e ': r) (tk a))
 
+```
+. . .
+```haskell
 bindT
     :: (a -> m b)
-    -> Semantic (WithTactics e tk m r)
-                (tk a -> Semantic (e ': r) (tk b))
+    -> Free (WithTactics e tk m r)
+                (tk a -> Free (e ': r) (tk b))
 ```
 
 ----
 
-This is where we stop. We've now simultaneously solved the boilerplate and
+This is where we stop.
+
+. . .
+
+We've now simultaneously solved the boilerplate and
 performance problems, as well as put a friendly UX around the whole thing.
 
 ----
 
 I'd like to leave you with a comparison.
 
-First, `fused-effects`, the incumbent library, and it's implementation of the
-`Resource` effect:
+. . .
+
+First, the implementation of `bracket` in `fused-effects`:
 
 ----
 
@@ -1475,7 +1648,24 @@ runResource finish = interpretH $ \case
 
 ----
 
-Thanks for listening!
+## Shoutouts
+
+> My girlfriend Virginie for putting up with me talking about free monads for
+two months.
+
+. . .
+
+> Li-Yao Xia for showing me the final encoding of `Freer`.
+
+. . .
+
+> Rob Rix for sitting down with me and explaining how the heck `fused-effects` is so fast.
+
+----
+
+# Thanks for listening!
+
+. . .
 
 Questions?
 
