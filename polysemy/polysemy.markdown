@@ -9,7 +9,70 @@ patat:
     right: 5
 ---
 
-A webserver that does what.
+# Polysemy
+
+## Chasing Performance in Free Monads
+
+---
+
+* **Sandy Maguire**
+* sandy@sandymaguire.me
+
+* reasonablypolymorphic.com
+* github.com/isovector
+
+
+Today's slides:
+
+* reasonablypolymorphic.com/polysemy-talk
+
+---
+
+Our codebase was written by contractors.
+
+Big ball o' IO spaghetti.
+
+Impossible to test.
+
+---
+
+*Free monads* are what I think programming will look like in 30 years.
+
+. . .
+
+Write your applications in *domain specific language* designed for your exact
+problem.
+
+. . .
+
+*Run a series of transformations* to compile your high-level specification into
+lower-level DSLs.
+
+---
+
+Most programs are easy to describe.
+
+. . .
+
+The majority of a codebase is spent dealing with nitty-gritty details.
+
+. . .
+
+This is where most of the bugs are.
+
+---
+
+Let's turn implementation details into library code!
+
+---
+
+# Example
+
+Data ingestion service that:
+
+* reads encrypted CSV files
+* emits them in batches to a streaming HTTP service
+* records statistics in Redis
 
 ---
 
@@ -219,56 +282,144 @@ main = ingest
 
 ---
 
-coudl have doen this purely example
+But maybe we want to test this without a million mocked services?
 
-15m
+. . .
+
+```haskell
+test :: ([Stat], ([Record], ()))
+test = ingest
+     & runInput [record1, record2]
+     & runPureOuput @Recor
+     & runPureOuput @Stat
+     & run
+```
 
 ---
 
-```haskell
-data Teletype k
-  = Pure k
-  | WriteLine String (Teletype k)
-  | ReadLine (String -> Teletype k)
-  deriving (Functor, Applicative) via WrappedMonad Teletype
-```
+
+If both a test and real interpreter are correct,
+
+. . .
+
+And the program is correct under the test,
+
+. . .
+
+Then the program is correct under the real interpreter!
+
+. . .
+
+**Correctness composes!**
 
 ----
 
+Two major players in the free monad space:
+
+. . .
+
+## freer-simple
+
+* No boilerplate!
+* Friendly to use!
+* 35x slower than theoretically possible.
+* Incapable of expressing lots of desirable effects.
+
+
+. . .
+
+## fused-effects
+
+* SO MUCH BOILERPLATE.
+* Not very friendly.
+* As fast as possible!
+* All effects are expressible!
+
+. . .
+
+**Neither of these is a good trade-off!**
+
+----
+
+My new library:
+
+. . .
+
+## polysemy
+
+* No boilerplate!
+* Friendly to use!
+* As fast as possible!
+* All effects are expressible!
+
+. . .
+
+*The best of both worlds!*
+
+----
+
+We'll discuss how this was possible!
+
+. . .
+
+But first, let's get you up to speed on naive free monads.
+
+----
+
+
+```haskell
+data Teletype k
+  = Done k
+  | WriteLine String (Teletype k)
+  | ReadLine (String -> Teletype k)
+
+
+echo :: Teletype ()
+echo = ReadLine $ \msg ->
+       WriteLine msg
+     $ Done ()
+```
+
+. . .
+
+
 ```haskell
 instance Monad Teletype where
-  return = Pure
-  Pure          k >>= f = f k
+  return = Done
+  Done          k >>= f = f k
   WriteLine msg k >>= f = WriteLine msg $ k >>= f
   ReadLine      k >>= f = ReadLine $ \str -> k str >>= f
 ```
 
 ----
 
-```haskell
-echo :: Teletype ()
-echo = ReadLine
-     $ \msg -> WriteLine msg
-     $ Pure ()
-```
-
-----
+Because it's a monad, we can write this more idiomatically.
 
 ```haskell
 echo :: Teletype ()
 echo = do
-  msg <- ReadLine pure
-  WriteLine msg $ pure ()
+  msg <- ReadLine Done
+  WriteLine msg $ Done ()
 ```
 
 ----
 
+... and define evaluation semantics for it.
+
+. . .
+
 ```haskell
 runTeletypeInIO :: Teletype a -> IO a
-runTeletypeInIO (Pure a) = pure a
+runTeletypeInIO (Done a) = pure a
+```
+. . .
+```haskell
 runTeletypeInIO (WriteLine msg k) = do
   putStrLn msg
   runTeletypeInIO k
+```
+. . .
+```haskell
 runTeletypeInIO (ReadLine k) =  do
   msg <- getLine
   runTeletypeInIO $ k msg
@@ -276,26 +427,70 @@ runTeletypeInIO (ReadLine k) =  do
 
 ----
 
+
 ```haskell
 runTeletypePurely :: [String] -> Teletype a -> ([String], a)
-runTeletypePurely _ (Pure a) = ([], a)
+runTeletypePurely _ (Done a) = ([], a)
+```
+. . .
+```haskell
 runTeletypePurely ls (WriteLine msg k) =
   let (rs, a) = runTeletypePurely ls k
    in (msg : rs, a)
-runTeletypePurely []       (ReadLine k) =  runTeletypePurely [] $ k ""
-runTeletypePurely (l : ls) (ReadLine k) =  runTeletypePurely ls $ k l
+```
+. . .
+```haskell
+runTeletypePurely []       (ReadLine k) =
+  runTeletypePurely [] $ k ""
+```
+. . .
+```haskell
+runTeletypePurely (l : ls) (ReadLine k) =
+  runTeletypePurely ls $ k l
 ```
 
 ----
+
+```haskell
+data Teletype k
+  = Done k
+  | WriteLine String (Teletype k)
+  | ReadLine (String -> Teletype k)
+```
+
+The `Done` constructor and the recursion are only necessary to make this a
+`Monad`.
+
+We can factor them out.
+
+
+---
+
+Before:
+
+```haskell
+data Teletype k
+  = Done k
+  | WriteLine String (Teletype k)
+  | ReadLine (String -> Teletype k)
+```
+
+After:
 
 ```haskell
 data Free f k
   = Pure k
   | Impure (f (Free f k))
-  deriving (Functor, Applicative) via WrappedMonad (Free f)
+
+
+data Teletype a
+  = WriteLine String a
+  | ReadLine (String -> a)
 ```
 
 ----
+
+`Free f` is a `Monad` whenever `f` is a `Functor`!
 
 ```haskell
 instance Functor f => Monad (Free f) where
@@ -306,14 +501,7 @@ instance Functor f => Monad (Free f) where
 
 ----
 
-```haskell
-data Teletype a
-  = WriteLine String a
-  | ReadLine (String -> a)
-  deriving Functor
-```
-
-----
+Let's write some helper functions:
 
 ```haskell
 writeLine :: String -> Free Teletype ()
@@ -323,10 +511,11 @@ readLine :: Free Teletype String
 readLine = Impure $ ReadLine pure
 ```
 
-----
+. . .
 
--- TODO(sandy): remove the trailing ticks in this file
+`echo` is no longer conspicuous:
 
+. . .
 ```haskell
 echo :: Free Teletype ()
 echo = do
@@ -335,6 +524,8 @@ echo = do
 ```
 
 ----
+
+We can also factor out the evaluation plumbing:
 
 ```haskell
 runFree
@@ -346,7 +537,9 @@ runFree _ (Pure a)  = pure a
 runFree f (Impure k) = f k >>= runFree f
 ```
 
-----
+. . .
+
+Less boilerplate in our interpretation:
 
 ```haskell
 runTeletypeInIO :: Free Teletype a -> IO a
@@ -361,31 +554,44 @@ runTeletypeInIO = runFree $ \case
 
 ----
 
+# Combining Multiple Effects
+
 ```haskell
 data Bell k
   = RingBell k
   deriving Functor
 ```
 
-----
+. . .
 
 ```haskell
 data Sum f g a
   = L (f a)
   | R (g a)
-  deriving Functor
 
+instance (Functor f, Functor g) => Functor (Sum f g)
+```
+
+. . .
+
+```haskell
 type TeletypeWithBell = Sum Teletype Bell
 ```
 
 ----
 
+Before:
+
+```haskell
+writeLine :: String -> Free Teletype ()
+writeLine msg = Impure $ WriteLine msg $ pure ()
+```
+
+After:
+
 ```haskell
 writeLine :: String -> Free TeletypeWithBell ()
 writeLine msg = Impure $ L $ WriteLine msg $ pure ()
-
-readLine :: Free TeletypeWithBell String
-readLine = Impure $ L $ ReadLine pure
 
 ringBell :: Free TeletypeWithBell ()
 ringBell = Impure $ R $ RingBell $ pure ()
@@ -393,76 +599,202 @@ ringBell = Impure $ R $ RingBell $ pure ()
 
 ----
 
+We can interleave actions from both effects.
+
 ```haskell
-ringItSingIt :: Free TeletypeWithBell String
+ringItSingIt :: Free TeletypeWithBell ()
 ringItSingIt = do
   msg <- readLine
   when (msg == "ring the bell!") ringBell
-  pure msg
 ```
 
 ----
 
 ```haskell
-data Union r a
+interpret
+    :: Monad m
+    => (forall x. f x -> m x)
+    -> (forall x. g x -> m x)
+    -> Sum f g a
+    -> m a
+interpret hf _ (L mf) = hf mf
+interpret _ hg (R mg) = hg mg
+```
 
+. . .
+
+We can nest effects as deeply as we want inside of `Sum`!
+
+----
+
+# Effects a la Carte
+
+```haskell
+data Union r a
+```
+
+. . .
+
+For example:
+
+```haskell
+Union '[Bell, Teletype, State Bool, Error InvalidArgument] a
+```
+
+. . .
+
+`Union r` is a `Functor` iff every type inside of `r` is.
+
+----
+
+We can get in and out of a `Union`.
+
+
+```haskell
 class Member f r where
   inj  :: f a       -> Union r a
   proj :: Union r a -> Maybe (f a)
 ```
 
+
 ----
+
+
+Before:
+
+```haskell
+writeLine :: String -> Free TeletypeWithBell ()
+writeLine msg = Impure $ L $ WriteLine msg $ pure ()
+```
+
+After:
+
 
 ```haskell
 writeLine :: Member Teletype r => String -> Free (Union r) ()
 writeLine msg = Impure $ inj $ WriteLine msg $ pure ()
-
-readLine :: Member Teletype r => Free (Union r) String
-readLine = Impure $ inj $ ReadLine pure
-
-ringBell :: Member Bell r => Free (Union r) ()
-ringBell = Impure $ inj $ RingBell $ pure ()
 ```
 
+. . .
+
+Now we are **polymorphic in our capabilities**.
+
 ----
 
-Various Extensions
+This is where `freer-simple` and `fused-effects` start to differ.
+
+. . .
+
+> `freer-simple` diverges to get rid of the boilerplate.
+
+. . .
+
+> `fused-effects` diverges to get more speed and expressiveness.
+
+. . .
+
+Unfortunately, it's unclear how to merge the two differences.
 
 ----
 
+# How Does `freer-simple` eliminate the boilerplate?
+
+Insight: because we can't embed our effects, we can just keep them in a queue.
+
+. . .
+
+Rather than:
 
 ```haskell
-runFree
-    :: Monad m
-    => (∀ x. f x -> m x)
-    -> Free f a
-    -> m a
+echo = ReadLine $ \msg ->
+       WriteLine msg
+     $ Done ()
 ```
 
-What if we just GADTd it?
+. . .
+
+
+we can just write
+
+```haskell
+echo = [ReadLine, WriteLine]
+```
+
+. . .
+
+(plus a little magic to thread the output of `ReadLine` to the input
+of `WriteLine`)
+
+---
+
+With this encoding, we no longer need to have continuations in our effects.
+
+. . .
+
+Before:
+
+```haskell
+data Teletype a
+  = WriteLine String a
+  | ReadLine (String -> a)
+```
+
+. . .
+
+After:
 
 ```haskell
 data Teletype a where
   WriteLine :: String -> Teletype ()
   ReadLine  :: Teletype String
-
-data Bell a where
-  RingBell :: Bell ()
 ```
 
-No more \ty{Functor}s!
+. . .
+
+> Doesn't require `Functor` instances
+
+> Exactly parallels the types of the actions
 
 ----
 
-```haskell
-newtype ReaderT r m a = ReaderT { runReaderT :: r -> m a }
-```
+This is a great change, and is $O(n)$ faster than the naive encoding!
+
+. . .
+
+Unfortunately it has extremely high constant factors, due to needing to allocate
+the intermediary queue of actions.
+
 
 ----
 
-```haskell
-runReader :: Monad m => ReaderT r m a -> r -> m a
+## Too Fast, Too Free
 
+Two months ago, Li-Yao Xia:
+
+<!-- TODO(sandy): get the real quote! -->
+
+> I bet if you used the final encoding of `Freer`, it would be much faster.
+
+```haskell
+newtype Freer r a = Freer
+  { runFreer
+        :: ∀ m
+         . Monad m
+        => (∀ x. Union r x -> m x)
+        -> m a
+  }
+```
+
+
+. . .
+
+What the heck is this thing??
+
+----
+
+`Free` is uniquely determined by its interpretation function:
+
+```haskell
 runFree
     :: Monad m
     => (∀ x. f x -> m x)
@@ -470,22 +802,95 @@ runFree
     -> m a
 ```
 
-This thing is a \ty{ReaderT} in disguise!
+. . .
+
+We can reshuffle the `Free` argument first, and use this function as our
+definition of `Freer`.
 
 ----
 
+Reshuffled:
+
+```haskell
+runFree
+    :: Free (Union r) a
+    -> ∀ m
+     . Monad m
+    => (∀ x. Union r x -> m x)
+    -> m a
+```
+
+. . .
+
+Put a newtype constructor around it:
 
 ```haskell
 newtype Freer r a = Freer
   { runFreer
-        :: ∀ m. Monad m
+        :: ∀ m
+         . Monad m
         => (∀ x. Union r x -> m x)
         -> m a
   }
-  deriving (Functor, Applicative) via WrappedMonad (Freer r)
 ```
 
 ----
+
+It took me a few days to work through the implications of this encoding.
+
+. . .
+
+To my surprise, it improved the constant factors of `freer-simple` by 35x.
+
+. . .
+
+But why?
+
+----
+
+Consider the humble `ReaderT`:
+
+```haskell
+newtype ReaderT r m a = ReaderT
+  { runReaderT :: r -> m a
+  }
+```
+
+`ReaderT` lets you read a single, constant value of type `r`.
+
+. . .
+
+It is a zero-cost abstraction.
+
+----
+
+Anything look familiar?
+
+```haskell
+runReaderT
+    :: Monad m
+    => ReaderT r m a
+    -> r
+    -> m a
+```
+. . .
+```haskell
+runFreer
+    :: Monad m
+    => Freer r a
+    => (∀ x. Union r x -> m x)
+    -> m a
+```
+
+. . .
+
+**`Freer` is just `ReaderT` in disguise!**
+
+Shoutouts to Ollie Charles for pointing this out to me.
+
+----
+
+The proof:
 
 ```haskell
 instance Monad (Freer f) where
@@ -501,28 +906,27 @@ instance (Monad m) => Monad (ReaderT r m) where
     runReaderT (f a) r
 ```
 
+Identical `Monad` instances!
+
+
 ----
+
+We can use the natural transformation to make effects zero cost.
+
+. . .
 
 ```haskell
 liftFreer :: Member f r => f a -> Freer r a
 liftFreer fa = Freer $ \nt -> nt $ inj fa
 ```
 
----
+. . .
 
-show GADTING
-
-----
+Now:
 
 ```haskell
 writeLine' :: Member Teletype r => String -> Freer r ()
 writeLine' msg = liftFreer $ WriteLine msg
-
-readLine' :: Member Teletype r => Freer r String
-readLine' = liftFreer ReadLine
-
-ringBell' :: Member Bell r => Freer r ()
-ringBell' = liftFreer RingBell
 ```
 
 ----
@@ -533,6 +937,8 @@ Now any time our free monad wants to use an action, it immediately runs it in
 the final monad.
 
 ---
+
+# Even freer freer monads
 
 ```haskell
 echo :: Member Teletype r => Freer r ()
@@ -564,11 +970,18 @@ echoIO = runFreer runTeletypeInIO $ do
 
 ```haskell
 echoIO :: IO ()
-echoIO = do
-  msg <- runTeletypeInIO readLine
-  runTeletypeInIO $ writeLine msg
+echoIO = runFreer runTeletypeInIO $ do
+  msg <- liftFreer ReadLine
+  liftFreer $ WriteLine msg
 ```
+----
 
+```haskell
+echoIO :: IO ()
+echoIO = runFreer runTeletypeInIO $ do
+  msg <- Freer $ \nt -> nt ReadLine
+  Freer $ \nt -> nt $ WriteLine msg
+```
 ----
 
 ```haskell
@@ -584,11 +997,11 @@ echoIO = do
 echoIO :: IO ()
 echoIO = do
   msg <- case ReadLine of
-           ReadLine      -> getLine
-           WriteLine msg -> putStrLn msg
+           ReadLine    -> getLine
+           WriteLine s -> putStrLn s
   case WriteLine msg of
-    ReadLine -> getLine
-    WriteLine msg -> putStrLn msg
+    ReadLine    -> getLine
+    WriteLine s -> putStrLn s
 ```
 
 ----
@@ -597,11 +1010,11 @@ echoIO = do
 echoIO :: IO ()
 echoIO = do
   msg <- case ReadLine of
-           ReadLine      -> getLine
-           -- WriteLine msg -> putStrLn msg
+           ReadLine    -> getLine
+           -- WriteLine s -> putStrLn msg
   case WriteLine msg of
-    -- ReadLine -> getLine
-    WriteLine msg -> putStrLn msg
+    -- ReadLine    -> getLine
+    WriteLine s -> putStrLn s
 ```
 
 ----
@@ -610,9 +1023,9 @@ echoIO = do
 echoIO :: IO ()
 echoIO = do
   msg <- case ReadLine of
-           ReadLine      -> getLine
+           ReadLine -> getLine
   case WriteLine msg of
-    WriteLine msg -> putStrLn msg
+    WriteLine s -> putStrLn s
 ```
 
 ----
@@ -624,17 +1037,37 @@ echoIO = do
   putStrLn msg
 ```
 
+. . .
+
 So free!
 
 ----
 
-Shoutouts to Li-Yao Xia for the final encoding
+We've now shown how to solve the boilerplate and performance problems.
 
-And to Ollie Charles for pointing out that this thing is just a ReaderT
+. . .
+
+## Lets rewind and look at the changes `fused-effects` makes.
 
 ----
 
-Lets rewind.
+# Down the other trouser (where we left off)
+
+```haskell
+data Free r k
+  = Pure k
+  | Impure (Union r (Free r k))
+
+
+data Teletype a
+  = WriteLine String a
+  | ReadLine (String -> a)
+  deriving Functor
+
+
+writeLine :: Member Teletype r => String -> Free r ()
+writeLine msg = Impure $ inj $ WriteLine msg $ pure ()
+```
 
 ----
 
