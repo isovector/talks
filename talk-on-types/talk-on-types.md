@@ -20,12 +20,14 @@ patat:
 
 * reasonablypolymorphic.com
 * github.com/isovector
+* leanpub.com/thinking-with-types
 
 . . .
 
 Today's slides:
 
-* reasonablypolymorphic.com/talk-on-types
+* tinyurl.com/talk-on-types
+* github.com/isovector/talks/blob/master/talk-on-types/talk-on-types.md
 
 ---
 
@@ -279,6 +281,57 @@ getContent http =
 
 ---
 
+## A Real Program
+
+```haskell
+main :: IO ()
+main = do
+  result <- getContent greatWebsite
+  case (bodyContent result) of
+    Just page -> putStrLn page
+    Nothing   -> printStrLn "this can never happen"
+```
+
+---
+
+## A Real Program
+
+```haskell
+main :: IO ()
+main = do
+  result <- getContent greatWebsite
+  case (bodyContent result) of
+    Just page -> putStrLn page
+    Nothing   -> printStrLn "this can never happen"
+    --           ^   annoying, but necessary to satisfy the typechecker
+```
+
+. . .
+
+Presumably things like this are why people don't like types.
+
+. . .
+
+They *know things* about their code that the compiler *doesn't.*
+
+---
+
+**Rather than giving up on types...**
+
+Let's just teach the compiler what we know!
+
+. . .
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+...but first...
+
+---
+
 **Did you spot the bug?**
 
 . . .
@@ -440,36 +493,6 @@ setVerbToPost (Http url _ _) =
 
 ---
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
----
-
 How can we prevent this sort of bug?
 
 . . .
@@ -615,4 +638,222 @@ This is much easier to reason about!
 . . .
 
 **Takeaway:** Polymorphic is often better than concrete.
+
+---
+
+## Bonus!
+
+This also cleans up our program!
+
+. . .
+
+```haskell
+main :: IO ()
+main = do
+  result <- getContent greatWebsite
+  putStrLn $ bodyContents result
+```
+
+. . .
+
+No more ugly case statement!
+
+---
+
+We can use our new type variable to help reason about `getContents` too!
+
+. . .
+
+```haskell
+getContent :: Http a -> IO (Http String)
+```
+
+. . .
+
+The variable `a` shows up on only the input side --- not the output.
+
+. . .
+
+This means that whatever `a` was there *must have been discarded.*
+
+
+
+---
+
+**Let's do something a little sexier.**
+
+. . .
+
+&nbsp;
+
+&nbsp;
+
+...but first...
+
+---
+
+**Did you spot the *other* questionable thing?**
+
+. . .
+
+```haskell
+getContent :: Http -> IO Http
+getContent (Http url GET _) = do
+    contents <- fetchWebpage url
+    pure (Http url GET contents)
+getContent http = pure http
+```
+
+---
+
+**Did you spot the *other* questionable thing?**
+
+```haskell
+getContent :: Http -> IO Http
+getContent (Http url GET _) = do
+    contents <- fetchWebpage url
+    pure (Http url GET contents)
+getContent http = pure http  -- hmm
+```
+
+. . .
+
+We are *silently doing nothing* if the method is wrong!
+
+---
+
+## Fixing It
+
+Doing nothing is probably the least bad thing we can do here.
+
+. . .
+
+But why are we even *allowed* to call `getContent` on a `POST` request?
+
+. . .
+
+If we couldn't do that, then we *wouldn't need any* semantics for that case.
+
+---
+
+## Fixing It
+
+```haskell
+
+
+data Http a = Http
+  { url         :: String
+  , verb        :: Verb
+  , bodyContent :: a
+  }
+
+getContent    :: Http a -> IO (Http String)
+
+setVerbToPost :: Http a -> Http a
+```
+
+---
+
+## Fixing It
+
+```haskell
+{-# LANGUAGE DataKinds, KindSignatures #-}
+
+data Http a = Http
+  { url         :: String
+
+  , bodyContent :: a
+  }
+
+getContent    :: Http a -> IO (Http String)
+
+setVerbToPost :: Http a -> Http a
+```
+
+---
+
+## Fixing It
+
+```haskell
+{-# LANGUAGE DataKinds, KindSignatures #-}
+
+data Http (v :: Verb) a = Http
+  { url         :: String
+
+  , bodyContent :: a
+  }
+
+getContent    :: Http a -> IO (Http String)
+
+setVerbToPost :: Http a -> Http a
+```
+
+---
+
+## Fixing It
+
+```haskell
+{-# LANGUAGE DataKinds, KindSignatures #-}
+
+data Http (v :: Verb) a = Http
+  { url         :: String
+  , bodyContent :: a
+  }
+
+
+getContent    :: Http 'GET a -> IO (Http 'GET String)
+
+setVerbToPost :: Http a -> Http a
+```
+
+---
+
+## Fixing It
+
+```haskell
+{-# LANGUAGE DataKinds, KindSignatures #-}
+
+data Http (v :: Verb) a = Http
+  { url         :: String
+  , bodyContent :: a
+  }
+
+
+getContent    :: Http 'GET a -> IO (Http 'GET String)
+
+setVerbToPost :: Http v a -> Http 'POST a
+```
+
+. . .
+
+Now `POST`s are a completely different type than `GET`s.
+
+. . .
+
+&nbsp;
+
+**It's a type-error to attempt to call `getContent` on a `POST`!**
+
+---
+
+## Thanks for listening!
+
+. . .
+
+Any questions?
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+
+* **Sandy Maguire**
+* sandy@sandymaguire.me
+
+* reasonablypolymorphic.com
+* github.com/isovector
+* leanpub.com/thinking-with-types
+
 
