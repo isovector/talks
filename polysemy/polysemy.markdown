@@ -36,6 +36,71 @@ Impossible to test.
 
 ---
 
+Programming is really hard.
+
+. . .
+
+Programming culture puts lots of arbitrary difficulties in the way.
+
+---
+
+The biggest problem?
+
+*The computer's understanding comes first and foremost.*
+
+---
+
+## Software Lifecycle
+
+* Product person has an idea
+* Explains it to an engineer
+* The engineer explains it to the computer
+
+. . .
+
+* **There's a bug!**
+
+. . .
+
+* Another engineer reads between the lines
+* Tries to rebuild the understanding the original author had
+
+---
+
+Alternative idea:
+
+. . .
+
+> Let's just write code that better captures our understanding.
+
+. . .
+
+Today's languages are not well suited to this problem.
+
+---
+
+Instead, *let's write a new language.*
+
+A domain specific language that is *perfect* for solving the specific problem at
+hand.
+
+. . .
+
+... but there are lots of problems. No DSL is going to be great for all of
+them.
+
+---
+
+Instead, instead, *let's build a tool for writing new languages.*
+
+. . .
+
+Let's make it easy to create the perfect language to solve a particular problem.
+
+...and then solve the problem in that language!
+
+---
+
 *Free monads* are what I think programming will look like in 30 years.
 
 . . .
@@ -183,7 +248,7 @@ main = ingest
 
 > Open Effects:
 >
-> {FTP, HTTP, Encryption, Redis}
+> {FTP, HTTP, Encryption, Redis }
 
 ---
 
@@ -201,7 +266,7 @@ main = ingest
 
 > Open Effects:
 >
-> { FTP, HTTP, Redis}
+> { FTP, HTTP, Redis }
 
 ---
 
@@ -220,7 +285,7 @@ main = ingest
 
 > Open Effects:
 >
-> { FTP, Redis }
+> { FTP, Redis, IO }
 
 ---
 
@@ -240,7 +305,7 @@ main = ingest
 
 > Open Effects:
 >
-> { Redis }
+> { Redis, IO }
 
 ---
 
@@ -260,7 +325,7 @@ main = ingest
 
 > Open Effects:
 >
-> { }
+> { IO }
 
 ---
 
@@ -277,7 +342,6 @@ main = ingest
      & runFTP
      & runRedis
      & runM
-
 ```
 
 ---
@@ -290,7 +354,7 @@ But maybe we want to test this without a million mocked services?
 test :: ([Stat], ([Record], ()))
 test = ingest
      & runInput [record1, record2]
-     & runPureOuput @Recor
+     & runPureOuput @Record
      & runPureOuput @Stat
      & run
 ```
@@ -313,59 +377,6 @@ Then the program is correct under the real interpreter!
 **Correctness composes!**
 
 ----
-
-Two major players in the free monad space:
-
-. . .
-
-## freer-simple
-
-* No boilerplate!
-* Friendly to use!
-* 35x slower than theoretically possible.
-* Incapable of expressing lots of desirable effects.
-
-
-. . .
-
-## fused-effects
-
-* SO MUCH BOILERPLATE.
-* Not very friendly.
-* As fast as possible!
-* All effects are expressible!
-
-. . .
-
-**Neither of these is a good trade-off!**
-
-----
-
-My new library:
-
-. . .
-
-## polysemy
-
-* No boilerplate!
-* Friendly to use!
-* As fast as possible!
-* All effects are expressible!
-
-. . .
-
-*The best of both worlds!*
-
-----
-
-We'll discuss how this was possible!
-
-. . .
-
-But first, let's get you up to speed on naive free monads.
-
-----
-
 
 ```haskell
 data Teletype k
@@ -679,55 +690,59 @@ writeLine msg = Impure $ inj $ WriteLine msg $ pure ()
 
 Now we are **polymorphic in our capabilities**.
 
-----
+---
 
-This is where `freer-simple` and `fused-effects` start to differ.
-
-. . .
-
-> `freer-simple` diverges to get rid of the boilerplate.
-
-. . .
-
-> `fused-effects` diverges to get more speed and expressiveness.
-
-. . .
-
-Unfortunately, it's unclear how to merge the two differences.
-
-----
-
-# How Does `freer-simple` eliminate the boilerplate?
-
-Insight: because we can't embed our effects, we can just keep them in a queue.
-
-. . .
-
-Rather than:
+## Free Constructions
 
 ```haskell
-echo = ReadLine $ \msg ->
-       WriteLine msg
-     $ Done ()
+data Coyoneda f a where
+  Coyoneda
+      :: f a  -- *
+      -> (a -> b)
+      -> Coyoneda f b
 ```
 
 . . .
 
+`Coyoneda f` is a functor, even when `f` is not!
 
-we can just write
+---
 
 ```haskell
-echo = [ReadLine, WriteLine]
+instance Functor (Coyoneda f) where
+  fmap f' (Coyoneda a f) = Coyoneda a (f' . f)
 ```
 
-. . .
+For this reason, we call `Coyoneda` the "free functor."
 
-(plus a little magic to thread the output of `ReadLine` to the input
-of `WriteLine`)
+---
+
+By implementing `Union` in terms of `Coyoneda`, we remove the need for users to
+write `Functor` instances.
+
+Before:
+
+```haskell
+Union '[State s, Error e] a
+    = Sum (State s)
+          (Error e)
+          a
+```
+
+Now:
+
+```haskell
+Union '[State s, Error e] a
+    = Sum (Coyoneda (State s))
+          (Coyoneda ((Error e))
+          a
+```
 
 ---
 
 With this encoding, we no longer need to have continuations in our effects.
+
+Recall that these only existed in order to give Functor instances!
 
 . . .
 
@@ -751,78 +766,80 @@ data Teletype a where
 
 . . .
 
-> Doesn't require `Functor` instances
-
 > Exactly parallels the types of the actions
 
 ----
 
-This is a great change, and is $O(n)$ faster than the naive encoding!
+We have successfully cut away almost all of the boilerplate!
 
-. . .
+Unfortunately, our performance here is terrible.
 
-Unfortunately it has extremely high constant factors, due to needing to allocate
-the intermediary queue of actions.
-
-
-----
-
-## Too Fast, Too Free
-
-Two months ago, Li-Yao Xia:
-
-<!-- TODO(sandy): get the real quote! -->
-
-> I bet if you used the final encoding of `Freer`, it would be much faster.
+---
 
 ```haskell
-newtype Freer r a = Freer
-  { runFreer
-        :: ∀ m
-         . Monad m
-        => (∀ x. Union r x -> m x)
-        -> m a
-  }
+-- We have a pointer here
+-- v
+Impure (Coyoneda ReadLine (\msg ->
+  Impure (Coyoneda (WriteLine msg) (\() ->
+
+
+    ()
+    ))))
 ```
 
+---
+
+```haskell
+
+
+Impure (Coyoneda ReadLine (\msg ->
+  Impure (Coyoneda (WriteLine msg) (\() ->
+  -- But we need to change this part of the data structure
+  -- v
+    ()
+    ))))
+```
 
 . . .
 
-What the heck is this thing??
+Modifying this thing is `O(n)`; therefore *constructing it* is `O(n^2)`!
 
 ----
 
-`Free` is uniquely determined by its interpretation function:
+## The Continuation Passing Transformation
+
+Interesting fact: composing functions is `O(1)`. Just stick one after the other!
+
+If we could somehow implement `Free` in terms of function composition, we would
+avoid the bad performance.
+
+---
+
+Recall that `Free` is uniquely determined by its interpretation function:
 
 ```haskell
 runFree
-    :: Monad m
-    => (∀ x. f x -> m x)
-    -> Free f a
+    :: ∀ m
+     . Monad m
+    => (∀ x. Union r x -> m x)
+    -> Free r a
     -> m a
 ```
 
-. . .
+As it happens, this thing is exactly what we need.
 
-We can reshuffle the `Free` argument first, and use this function as our
-definition of `Freer`.
-
-----
-
-Reshuffled:
+---
 
 ```haskell
 runFree
-    :: Free (Union r) a
+    -> Free r a
     -> ∀ m
      . Monad m
     => (∀ x. Union r x -> m x)
     -> m a
 ```
 
-. . .
-
-Put a newtype constructor around it:
+and then put it into a record:
 
 ```haskell
 newtype Freer r a = Freer
@@ -834,354 +851,38 @@ newtype Freer r a = Freer
   }
 ```
 
-----
+---
 
-It took me a few days to work through the implications of this encoding.
+This transformation is known as the *Boehm-Berarducci encoding.*
 
-. . .
-
-To my surprise, it improved the constant factors of `freer-simple` by 35x.
-
-. . .
-
-But why?
-
-----
-
-Consider the humble `ReaderT`:
-
-```haskell
-newtype ReaderT r m a = ReaderT
-  { runReaderT :: r -> m a
-  }
-```
-
-`ReaderT` lets you read a single, constant value of type `r`.
-
-. . .
-
-It is a zero-cost abstraction.
-
-----
-
-Anything look familiar?
-
-```haskell
-runReaderT
-    :: Monad m
-    => ReaderT r m a
-    -> r
-    -> m a
-```
-. . .
-```haskell
-runFreer
-    :: Monad m
-    => Freer r a
-    => (∀ x. Union r x -> m x)
-    -> m a
-```
-
-. . .
-
-**`Freer` is just `ReaderT` in disguise!**
-
-----
-
-The proof:
-
-```haskell
-instance Monad (Freer f) where
-  return a = Freer $ \nt -> pure a
-  m >>= f  = Freer $ \nt -> do
-    a <- runFreer m nt
-    runFreer (f a) nt
-
-instance (Monad m) => Monad (ReaderT r m) where
-  return a = ReaderT $ \r -> pure a
-  m >>= f  = ReaderT $ \r -> do
-    a <- runReaderT m r
-    runReaderT (f a) r
-```
-
-Identical `Monad` instances!
-
-
-----
-
-We can use the natural transformation to make effects zero cost.
-
-. . .
-
-```haskell
-liftFreer :: Member f r => f a -> Freer r a
-liftFreer fa = Freer $ \nt -> nt $ inj fa
-```
-
-. . .
-
-Now:
-
-```haskell
-writeLine' :: Member Teletype r => String -> Freer r ()
-writeLine' msg = liftFreer $ WriteLine msg
-```
-
-----
-
-What the heck is going on?
-
-Now any time our free monad wants to use an action, it immediately runs it in
-the final monad.
+Harder to work with, but often asymptotically faster.
 
 ---
 
-# Even freer freer monads
+## The Takeaway
 
-```haskell
-echo :: Member Teletype r => Freer r ()
-echo = do
-  msg <- readLine
-  writeLine msg
+Theory is not just intellectual signaling.
 
-echoIO :: IO ()
-echoIO = runFreer runTeletypeInIO echo
-```
+It's *actually useful* for finding better ways of implementing things.
 
-----
+---
 
-```haskell
-echoIO :: IO ()
-echoIO = runFreer runTeletypeInIO echo
-```
-
-----
-
-```haskell
-echoIO :: IO ()
-echoIO = runFreer runTeletypeInIO $ do
-  msg <- readLine
-  writeLine msg
-```
-
-----
-
-```haskell
-echoIO :: IO ()
-echoIO = runFreer runTeletypeInIO $ do
-  msg <- liftFreer ReadLine
-  liftFreer $ WriteLine msg
-```
-----
-
-```haskell
-echoIO :: IO ()
-echoIO = runFreer runTeletypeInIO $ do
-  msg <- Freer $ \nt -> nt ReadLine
-  Freer $ \nt -> nt $ WriteLine msg
-```
-----
-
-```haskell
-echoIO :: IO ()
-echoIO = do
-  msg <- runTeletypeInIO ReadLine
-  runTeletypeInIO $ WriteLine msg
-```
-
-----
-
-```haskell
-echoIO :: IO ()
-echoIO = do
-  msg <- case ReadLine of
-           ReadLine    -> getLine
-           WriteLine s -> putStrLn s
-  case WriteLine msg of
-    ReadLine    -> getLine
-    WriteLine s -> putStrLn s
-```
-
-----
-
-```haskell
-echoIO :: IO ()
-echoIO = do
-  msg <- case ReadLine of
-           ReadLine    -> getLine
-           -- WriteLine s -> putStrLn msg
-  case WriteLine msg of
-    -- ReadLine    -> getLine
-    WriteLine s -> putStrLn s
-```
-
-----
-
-```haskell
-echoIO :: IO ()
-echoIO = do
-  msg <- case ReadLine of
-           ReadLine -> getLine
-  case WriteLine msg of
-    WriteLine s -> putStrLn s
-```
-
-----
-
-```haskell
-echoIO :: IO ()
-echoIO = do
-  msg <- getLine
-  putStrLn msg
-```
-
-. . .
-
-So free!
-
-----
-
-We've now shown how to solve the boilerplate and performance problems.
-
-. . .
-
-## Lets rewind and look at the changes `fused-effects` makes.
-
-----
-
-# Down the other trouser (where we left off)
-
-```haskell
-data Free r k
-  = Pure k
-  | Impure (Union r (Free r k))
-
-
-data Teletype a
-  = WriteLine String a
-  | ReadLine (String -> a)
-  deriving Functor
-
-
-writeLine :: Member Teletype r => String -> Free r ()
-writeLine msg = Impure $ inj $ WriteLine msg $ pure ()
-```
-
-----
-
-An effect we'd like, but can't have:
+## An Effect We Can't Have!
 
 ```haskell
 throw
     :: Member (Error e) r
     => e
-    -> Free r a
+    -> Freer r a
 
 catch
     :: Member (Error e) r
-    => Free r a
-    -> (e -> Free r a)
-    -> Free r a
+    => Freer r a
+    -> (e -> Freer r a)
+    -> Freer r a
 ```
 
-`catch` contains an embedded `Free`.
-
-----
-
-What we'd like:
-```haskell
-data Error e k
-  = Throw e
-  | ∀ x. Catch (???)
-               (e -> ???)
-               (x -> k)
-```
-
-----
-
-Maybe
-
-```haskell
-data Error e r k
-  = Throw e
-  | ∀ x. Catch (Free r x)
-               (e -> Free r x)
-               (x -> k)
-```
-
-?
-
-. . .
-
-Unfortunately this type cannot be embedded inside a `Union` :(
-
-----
-
-Instead:
-
-```haskell
-data Error e m k
-  = Throw e
-  | ∀ x. Catch (m x)
-               (e -> m x)
-               (x -> k)
-```
-
-. . .
-
-Just force `m` to be `Free r`:
-
-. . .
-
-```haskell
-data Free r a
-  = Pure a
-  | Impure (Union r (Free r) a)
-
-liftFree :: Member f r => f (Free r) (Free r a) -> Free r a
-```
-
-----
-
-Effects don't need to use `m` if they don't want to.
-
-```haskell
-data State s m k
-  = Get (s -> k)
-  | Put s k
-```
-
-----
-
-## The Problem
-
-How do `State` and `Error` interact?
-
-. . .
-
-How can we thread state changes through a `Catch` action?
-
-----
-
-## The Solution: Functors!
-
-. . .
-
-What is a functor, really?
-
-. . .
-
-Just a value in some sort of context.
-
-. . .
-
-In particular, a value of `f ()` is *only* a context!
-
-----
-
-We can abuse this fact, and wrap up the state of the world as some functor.
-
-. . .
+---
 
 ```haskell
 class Effect e where
@@ -1192,166 +893,48 @@ class Effect e where
         -> e n (tk a)
 ```
 
-. . .
-
-* `tk ()` is the state of the world when the effect starts
-
-* `(∀ x. tk (m x) -> n (tk x))` is a distribution law for describing how to run
-  effects in a context.
+Think `m` is an effect stack with some effect, and `n` is the same stack, but
+*without* that effect.
 
 . . .
 
-`weave` allows an effect to have other effects "pushed through it."
+`Effect e` describes how other effects can push their statefulness through `e`.
 
-----
-
-Weaving through `Error`:
+---
 
 ```haskell
-instance Effect (Error e) where
-  weave _ _ (Throw e) = Throw e
-  weave tk distrib (Catch try handle k) =
-    Catch (distrib $ try <$ tk)
-          (\e -> distrib $ handle e <$ tk)
-          (fmap k)
-```
-
-. . .
-
-The "ice-cream cone" operator replaces the contents of a `Functor`:
-
-```haskell
-(<$) :: Functor f => a -> f b -> f a
-```
-
-----
-
-The `State` effect needs to push its state through other effects'
-subcomputations.
-
-It can call `weave` to do this.
-
-. . .
-
-```haskell
-runState :: s -> Free (State s ': r) a -> Free r (s, a)
-runState s (Pure a) = pure (s, a)
-runState s (Impure u) =
-  case decomp u of
-    Left other -> Impure $
-      weave (s, ())
-            (\(s', m) -> runState s' m)
-            other
-    Right (Get k)    -> pure (s,  k s)
-    Right (Put s' k) -> pure (s', k)
-```
-
-. . .
-
-`decomp` can extract a single effect out of a `Union`; or prove that it was
-never there to begin with.
-
-. . .
-
-```haskell
-decomp
-    :: Union (e ': r) m a
-    -> Either (Union r m a) (e m a)
-```
-
-----
-
-Surprisingly, this thing works!
-
-. . .
-
-But it's slow.
-
-. . .
-
-Because `runState` is recursive, GHC won't perform any optimizations on it :(
-
-
-
-----
-
-We can "break the recursion" by hand.
-
-```haskell
-runState :: s -> Free (State s ': r) a -> Free r (s, a)
-runState s (Pure a) = pure (s, a)
-runState s (Impure u) =
-  case decomp u of
-    Left other -> Impure $
-      weave (s, ())
-            (\(s, m) -> runState_b s m)
-            other
-    Right (Get k)    -> pure (s,  k s)
-    Right (Put s k) -> pure (s, k)
-{-# INLINE runState #-}
-```
-
-. . .
-```haskell
-runState_b :: s -> Free (State s ': r) a -> Free r (s, a)
-runState_b = runState
-{-# NOINLINE runState_b #-}
-```
-
-. . .
-
-Now GHC is happy and will make our program **fast**!
-
-----
-
-Lots of the boilerplate in `fused-effects` comes from needing to write `Effect`
-instances.
-
-. . .
-
-But these instances are necessary for higher-order effects!
-
-. . .
-
-Are we cursed to always have this boilerplate?
-
-----
-
-No!
-
-. . .
-
-```haskell
-data Yo e m a where
-  Yo :: Functor tk
+data Weaving e m a where
+  Weaving
+     :: Functor tk
      => e m a
      -> tk ()
      -> (forall x. tk (m x) -> n (tk x))
      -> (tk a -> b)
-     -> Yo e n b
+     -> Weaving e n b
 ```
 
-`Yo` is the free `Effect`!
+`Weaving` is the free `Effect`!
 
 . . .
 
 ```haskell
-instance Effect (Yo e) where
-  weave tk' distrib' (Yo e tk distrib f) =
-    Yo e (Compose $ tk <$ tk')
+instance Effect (Weaving e) where
+  weave tk' distrib' (Weaving e tk distrib f) =
+    Weaving e (Compose $ tk <$ tk')
          (fmap Compose . distrib' . fmap distrib . getCompose)
          (fmap f . getCompose)
 ```
 
 ----
 
-And we can get into a `Yo` by using an `Identity` functor as our initial state.
+And we can get into a `Weaving` by using an `Identity` functor as our initial state.
 
 ```haskell
-liftYo :: Functor m => e m a -> Yo e m a
-liftYo e = Yo e (Identity ())
-                (fmap Identity . runIdentity)
-                runIdentity
+liftWeaving :: Functor m => e m a -> Weaving e m a
+liftWeaving e =
+    Weaving e (Identity ())
+              (fmap Identity . runIdentity)
+              runIdentity
 ```
 
 ----
@@ -1420,8 +1003,8 @@ runState s (Free m) = Free $ \nt ->
       Left x -> S.StateT $ \s' ->
         nt . weave (s', ()) (uncurry $ runState f)
            $ x
-      Right (Yo Get _ f)      -> fmap f $ S.get
-      Right (Yo (Put s') _ f) -> fmap f $ S.put s'
+      Right (Weaving Get _ f)      -> fmap f $ S.get
+      Right (Weaving (Put s') _ f) -> fmap f $ S.put s'
 ```
 
 ----
@@ -1434,234 +1017,7 @@ We've solved all of the problems! We now have solutions for
 
 all of which work together!
 
-. . .
-
-But what we've built isn't yet a joyful experience.
-
-. . .
-
-In particular, dealing with `Yo` is painful.
-
-----
-
-We can clean up the mess of writing effect handlers...
-
-. . .
-
-...
-
-. . .
-
-...with an effect-handler effect!
-
 ---
-
-Instead of this:
-
-```haskell
-instance Effect (Error e) where
-  weave _ _ (Throw e) = Throw e
-  weave tk distrib (Catch try handle k) =
-    Catch (distrib $ try <$ tk)
-          (\e -> distrib $ handle e <$ tk)
-          (fmap k)
-```
-
----
-
-We can just write this:
-
-```haskell
-runError = interpretH $ \case
-  Catch try handle -> do
-    t <- runT try
-    tried <- runError t
-    case tried of
-      Right a -> pure $ Right a
-      Left e -> do
-        h <- bindT handle
-        handled <- h e
-        case handled of
-          Right a -> pure $ Right a
-          Left e2 -> pure $ Left e2
-```
-
-The magic is in `runT` and `bindT`.
-
-----
-
-These combinators come from the `Tactics` effect:
-
-. . .
-
-```haskell
-data Tactics tk n r m a where
-  GetInitialState     :: Tactics tk n r m (tk ())
-  HoistInterpretation :: (a -> n b)
-                      -> Tactics tk n r m (tk a -> Free r (tk b))
-```
-. . .
-
-- `GetInitialState` is the `tk ()` parameter
-
-. . .
-
-- `HoistInterpretation` is the distribution law
-
-----
-
-```haskell
-type WithTactics e tk m r = Tactics tk m (e ': r) ': r
-```
-
-. . .
-
-```haskell
-pureT
-   :: a
-   -> Free (WithTactics e tk m r) (tk a)
-```
-. . .
-```haskell
-runT
-    :: m a
-    -> Free (WithTactics e tk m r)
-                (Free (e ': r) (tk a))
-
-```
-. . .
-```haskell
-bindT
-    :: (a -> m b)
-    -> Free (WithTactics e tk m r)
-                (tk a -> Free (e ': r) (tk b))
-```
-
-----
-
-This is where we stop.
-
-. . .
-
-We've now simultaneously solved the boilerplate and
-performance problems, as well as put a friendly UX around the whole thing.
-
-----
-
-I'd like to leave you with a comparison.
-
-. . .
-
-First, the implementation of `bracket` in `fused-effects`:
-
-----
-
-```haskell
-
-data Resource m k
-  = forall resource any output.
-      Resource (m resource)
-               (resource -> m any)
-               (resource -> m output)
-               (output -> k)
-
-deriving instance Functor (Resource m)
-
-instance HFunctor Resource where
-  hmap f (Resource acquire release use k) =
-    Resource (f acquire) (f . release) (f . use) k
-
-instance Effect Resource where
-  handle state handler (Resource acquire release use k)
-    = Resource (handler (acquire <$ state))
-               (handler . fmap release)
-               (handler . fmap use)
-               (handler . fmap k)
-
-bracket :: (Member Resource sig, Carrier sig m)
-        => m resource
-        -> (resource -> m any)
-        -> (resource -> m a)
-        -> m a
-bracket acquire release use =
-  send (Resource acquire release use pure)
-
-runResource :: (forall x . m x -> IO x)
-            -> ResourceC m a
-            -> m a
-runResource handler = runReader (Handler handler) . runResourceC
-
-newtype ResourceC m a = ResourceC
-  { runResourceC :: ReaderC (Handler m) m a
-  }
-  deriving ( Alternative, Applicative, Functor, Monad, MonadFail, MonadIO, MonadPlus)
-
-instance MonadTrans ResourceC where
-  lift = ResourceC . lift
-
-newtype Handler m = Handler (forall x . m x -> IO x)
-
-runHandler :: Handler m -> ResourceC m a -> IO a
-runHandler h@(Handler handler) = handler . runReader h . runResourceC
-
-instance (Carrier sig m, MonadIO m) =>
-      Carrier (Resource :+: sig) (ResourceC m) where
-  eff (L (Resource acquire release use k)) = do
-    handler <- ResourceC ask
-    a <- liftIO (Exc.bracket
-      (runHandler handler acquire)
-      (runHandler handler . release)
-      (runHandler handler . use))
-    k a
-  eff (R other) = ResourceC (eff (R (handleCoercible other)))
-```
-
-----
-
-Compare to `polysemy`:
-
-----
-
-
-```haskell
-
-data Resource m a where
-  Bracket :: m a -> (a -> m ()) -> (a -> m b) -> Resource m b
-
-makeSemantic ''Resource
-
-
-runResource
-    :: Member (Lift IO) r
-    => (∀ x. Semantic r x -> IO x)
-    -> Semantic (Resource ': r) a
-    -> Semantic r a
-runResource finish = interpretH $ \case
-  Bracket alloc dealloc use -> do
-    a <- runT  alloc
-    d <- bindT dealloc
-    u <- bindT use
-
-    let runIt = finish .@ runResource
-    sendM $ X.bracket (runIt a) (runIt . d) (runIt . u)
-```
-
-----
-
-## Shoutouts
-
-> My girlfriend Virginie for putting up with me talking about free monads for
-two months.
-
-. . .
-
-> Li-Yao Xia for showing me the final encoding of `Freer`.
-
-. . .
-
-> Rob Rix for sitting down with me and explaining how the heck `fused-effects` is so fast.
-
-----
 
 # Thanks for listening!
 
