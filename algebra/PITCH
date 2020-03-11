@@ -1,0 +1,9 @@
+# Algebra Driven Design
+
+## Overview
+
+In this talk, we will learn how to tease out and simplify the underlying
+algebra of a piece of software. This is not an academic exercise --- doing so
+will lead to beautiful designs, a meaningful metric of correctness, and
+a systematic means of finding extremely efficient implementations.
+
