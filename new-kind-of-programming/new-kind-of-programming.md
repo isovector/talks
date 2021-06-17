@@ -831,6 +831,104 @@ for us.
 
 ---
 
+## More Useful Things
+
+Of course, GHC can write `Functor` instances for us.
+
+. . .
+
+But it won't write `Monoid`!
+
+---
+
+## More Useful Things
+
+Common instances:
+
+```haskell
+instance Semigroup Zoop where
+  Zoop a1 b1 c1 <> Zoop a2 b2 c2 =
+    Zoop (a1 <> a2) (b1 <> b2) (c1 <> c2)
+```
+
+. . .
+
+```haskell
+instance Monoid Zoop where
+  mempty = Zoop mempty mempty mempty
+```
+
+. . .
+
+How can we tacticify these instances?
+
+<!--
+
+You'll notice I didn't tell you what Zoop is.
+And it doesn't even matter.
+We've all written ten thousand of these instances.
+
+-->
+
+---
+
+## More Useful Things
+
+```haskell
+instance Semigroup Zoop where
+  Zoop a1 b1 c1 <> Zoop a2 b2 c2 =
+    Zoop (a1 <> a2) (b1 <> b2) (c1 <> c2)
+```
+
+&nbsp;
+
+```
+intros x1 x2,
+destruct x1;
+pointwise (homo x2);
+use (<>);
+assumption
+```
+
+<!--
+
+notice that the original instance is O(n) of work in the number of arguments
+this is a constant amount, scaling to arbitrary arities
+
+-->
+
+. . .
+
+&nbsp;
+
+Only *69 bytes*, compared to 77 for the original instance.
+
+---
+
+## More Useful Things
+
+```haskell
+instance Monoid Zoop where
+  mempty = Zoop mempty mempty mempty
+```
+
+. . .
+
+&nbsp;
+
+Even easier:
+
+```
+split;
+use mempty
+```
+
+##
+
+
+
+---
+
   - destruct <x>
     - lookup x in the hypothesis, and write a case expression
     - for every data constructor, produce a new judgment.
@@ -848,20 +946,6 @@ for us.
     - "its semigroup instance is homomorphic"
     - or "it's a semigroup pointwise"
     - WAY EASIER THAN TYPING
-  - how would we make this?
-    - intros x1 x2,
-    - destruct x1;
-    - homo x2
-  - and, well, now what? we'd like to be able to restrict the hypothesis in our hole
-  - we can do it via `pointwise`
-    - which filters out any arguments that didn't come from the same context you're in
-      - IMPL NOTE -- need to track this!!
-    - now it's just what we know
-      - use <>;
-      - assumption
-  - et voila
-  - same order of magnitude as writing it by hand
-    - but again, like functor, this is completely reusable
     - it will automatically scale to the correct arity
 - one last thing
   - sometimes you need to change your thinking pattern to really capture what it is you're trying to accomplish
