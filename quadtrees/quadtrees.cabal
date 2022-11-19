@@ -1,0 +1,58 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.34.4.
+--
+-- see: https://github.com/sol/hpack
+
+name:           quadtrees
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/isovector/quadtrees#readme>
+homepage:       https://github.com/isovector/quadtrees#readme
+bug-reports:    https://github.com/isovector/quadtrees/issues
+author:         Sandy Maguire
+maintainer:     sandy@sandymaguire.me
+copyright:      Sandy Maguire
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    CHANGELOG.md
+
+source-repository head
+  type: git
+  location: https://github.com/isovector/quadtrees
+
+library
+  exposed-modules:
+      Naive
+  other-modules:
+      Paths_quadtrees
+  hs-source-dirs:
+      src
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints
+  build-depends:
+      QuickCheck
+    , algebra-checkers
+    , base >=4.7 && <5
+    , free
+    , linear
+  default-language: Haskell2010
+
+test-suite quadtrees-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      NaiveSpec
+      Paths_quadtrees
+  hs-source-dirs:
+      test
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      QuickCheck
+    , algebra-checkers
+    , base >=4.7 && <5
+    , free
+    , linear
+    , quadtrees
+  default-language: Haskell2010

@@ -1,0 +1,11 @@
+resolver: lts-18.18
+
+packages:
+- .
+
+extra-deps:
+- ../../algebra-checkers
+- th-instance-reification-0.1.5.1
+- list-extras-0.4.1.6
+
+
