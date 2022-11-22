@@ -25,6 +25,7 @@ dependencies:
 - free
 - linear
 - QuickCheck
+- checkers
 
 ghc-options:
 - -Wall

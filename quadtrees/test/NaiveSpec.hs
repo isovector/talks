@@ -5,12 +5,14 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# LANGUAGE TypeApplications #-}
 
 module NaiveSpec where
 
 import AlgebraCheckers
 import Naive
 import Test.QuickCheck
+import Test.QuickCheck.Checkers
 import Linear.V2
 import Data.Foldable (traverse_)
 
@@ -28,7 +30,15 @@ instance Arbitrary a => Arbitrary (V2 a) where
 instance Arbitrary a => Arbitrary (Quad a) where
   arbitrary = Quad <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
-mk :: QuadTree Int -> QuadTree Int
+instance EqProp a => EqProp (Quad a) where
+
+instance EqProp a => EqProp (QuadTree a) where
+  Leaf a =-= Leaf a' = a =-= a'
+  Leaf a =-= Tree qu = pure a =-= Tree qu
+  Tree qu =-= Leaf a = pure a =-= Tree qu
+  Tree qu =-= Tree qu' = qu =-= qu'
+
+mk :: QuadTree [Int] -> QuadTree [Int]
 mk = id
 
 buildRegion :: V2 Int -> Region
@@ -43,7 +53,9 @@ $(pure [])
 props :: [Property]
 props = $(theoremsOf [e| do
 
-  law "hello" $ getLocation xy (fill v (buildRegion xy) (regionify (extend (buildRegion xy)) (mk q))) == Just v
+  homo @Semigroup $ \v -> fill2 v r a (mk q)
+
+  -- law "hello" $ getLocation2 xy (extend (buildRegion xy)) (fmap snd (fill v (buildRegion xy) (regionify (extend (buildRegion xy)) (mk q)))) == Just v
 
   |])
 
