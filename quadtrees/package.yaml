@@ -26,6 +26,7 @@ dependencies:
 - linear
 - QuickCheck
 - checkers
+- containers
 
 ghc-options:
 - -Wall

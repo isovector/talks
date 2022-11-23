@@ -1,18 +1,22 @@
-{-# LANGUAGE DeriveFunctor        #-}
-{-# LANGUAGE DerivingStrategies   #-}
-{-# LANGUAGE DerivingVia          #-}
-{-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE PatternSynonyms      #-}
-{-# LANGUAGE StandaloneDeriving   #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE DeriveFoldable #-}
-{-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE DeriveFoldable         #-}
+{-# LANGUAGE DeriveFunctor          #-}
+{-# LANGUAGE DeriveGeneric          #-}
+{-# LANGUAGE DeriveTraversable      #-}
+{-# LANGUAGE DerivingStrategies     #-}
+{-# LANGUAGE DerivingVia            #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE PatternSynonyms        #-}
+{-# LANGUAGE StandaloneDeriving     #-}
+{-# LANGUAGE TupleSections          #-}
+{-# LANGUAGE TypeSynonymInstances   #-}
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
-{-# LANGUAGE DeriveGeneric #-}
+{-# OPTIONS_GHC -Wno-unused-matches #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
 
 module Naive where
 
+import qualified Data.Set as S
+import Data.Set (Set)
 import Control.Applicative (liftA2)
 -- import Control.Monad.Free
 -- import Control.Monad.Free
@@ -21,18 +25,12 @@ import Linear.V2
 import Data.Foldable (asum, toList, fold)
 import Data.Semigroup (Any)
 import GHC.Generics (Generic)
+import Semilattice
 
 data Quad a = Quad a a
                    a a
   deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable, Generic)
   deriving (Semigroup, Monoid) via Ap Quad a
-
-class Monoid a => Semilattice a where
-    (/\) :: a -> a -> a
-    (/\) = (<>)
-
-instance Semilattice Any
-instance Semilattice All
 
 
 instance Applicative Quad where
@@ -43,7 +41,7 @@ instance Applicative Quad where
 data QuadTree a
   = Leaf a
   | Tree (Quad (QuadTree a))
-  deriving (Eq, Ord, Show, Functor)
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance Applicative QuadTree where
   pure = Leaf
@@ -59,7 +57,7 @@ instance Monad QuadTree where
 
 type Region = Quad Int
 
-contains :: Region -> Region -> Bool
+contains :: (Ord a, Num a) => Quad a -> Quad a -> Bool
 contains (Quad bx by bw bh) (Quad sx sy sw sh) =
   and
     [ bx <= sx
@@ -68,7 +66,7 @@ contains (Quad bx by bw bh) (Quad sx sy sw sh) =
     , sy + sh <= by + bh
     ]
 
-containsPoint :: Region -> V2 Int -> Bool
+containsPoint :: (Ord a, Num a) => Quad a -> V2 a -> Bool
 containsPoint (Quad bx by bw bh) (V2 x y) =
   and
     [ bx <= x
@@ -77,20 +75,34 @@ containsPoint (Quad bx by bw bh) (V2 x y) =
     , y <= by + bh
     ]
 
-corners :: Region -> [V2 Int]
+corners :: (Num a) => Quad a -> [V2 a]
 corners (Quad x y w h) = do
   dx <- [0, w]
   dy <- [0, h]
   pure $ V2 (x + dx) (y + dy)
 
-intersects :: Region -> Region -> Bool
+intersects :: (Ord a, Num a) => Quad a -> Quad a -> Bool
 intersects r1 r2 = or
   [ any (containsPoint r1) (corners r2)
   , any (containsPoint r2) (corners r1)
   ]
 
-getIntersect :: Region -> Region -> Maybe Region
-getIntersect = undefined
+getIntersect :: (Ord a, Num a) => Quad a -> Quad a -> Maybe (Quad a)
+getIntersect r1 r2 =
+  let r_x (Quad x _ _ _) = x
+      r_y (Quad _ y _ _) = y
+      r_w (Quad _ _ w _) = w
+      r_h (Quad _ _ _ h) = h
+
+      x0 = max (r_x r1) (r_x r2)
+      y0 = max (r_y r1) (r_y r2)
+      x1 = min (r_x r1 + r_w r1) (r_x r2 + r_w r2)
+      y1 = min (r_y r1 + r_h r1) (r_y r2 + r_h r2)
+      w = x1 - x0
+      h = y1 - y0
+   in case 0 < w && 0 < h of
+        True -> Just $ Quad x0 y0 w h
+        False -> Nothing
 
 subdivide :: Region -> Quad Region
 subdivide (Quad x y w h) =
@@ -151,6 +163,18 @@ origami miss hit what (r, q) =
       sel (Just w) r' q' = hit w (r',  q')
    in sel <$> subw <*> subr <*> q
 
+origami'
+    :: b  -- ^ What to do if there is no intersection
+    -> (a -> b)  -- ^ What to do on an intersection
+    -> (Quad b -> b)  -- ^ What to do on an intersection
+    -> Region                        -- ^ Looking for what
+    -> (Region, Quad a)              -- ^ In the unnested quad
+    -> Quad b
+origami' miss cover hit what (r, q)
+  | intersects r what
+  = undefined
+  | otherwise = undefined
+
 getLocation :: V2 Int -> QuadTree (Region, a) -> Maybe a
 getLocation p (Leaf (r, a))
   | containsPoint r p = Just a
@@ -168,9 +192,15 @@ regionify :: Region -> QuadTree a -> QuadTree (Region, a)
 regionify r (Leaf a) = Leaf (r, a)
 regionify r (Tree qu) = Tree $ regionify <$> subdivide r <*> qu
 
-test :: Semilattice s => (a -> s) -> Region -> Region -> QuadTree a -> s
-test f area r (Leaf a) = f a
-test f area r (Tree qu') = _wk
+-- test :: Semilattice s => (a -> s) -> Region -> Region -> QuadTree a -> s
+-- test f area r (Leaf a) = f a
+-- test f area r (Tree qu') = undefined
+
+overlay :: (a -> b -> c) -> QuadTree a -> QuadTree b -> QuadTree c
+overlay = liftA2
+
+-- rect :: a -> Region -> Squadt
+
 
 
 deriving via Ap QuadTree a instance Semigroup a => Semigroup (QuadTree a)

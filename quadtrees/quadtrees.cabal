@@ -26,6 +26,7 @@ source-repository head
 library
   exposed-modules:
       Naive
+      NonNaive
   other-modules:
       Paths_quadtrees
   hs-source-dirs:
@@ -36,6 +37,7 @@ library
     , algebra-checkers
     , base >=4.7 && <5
     , checkers
+    , containers
     , free
     , linear
   default-language: Haskell2010
@@ -54,6 +56,7 @@ test-suite quadtrees-test
     , algebra-checkers
     , base >=4.7 && <5
     , checkers
+    , containers
     , free
     , linear
     , quadtrees
