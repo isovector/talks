@@ -1,11 +1,13 @@
+{-# LANGUAGE DeriveFunctor          #-}
+{-# LANGUAGE DerivingStrategies     #-}
+{-# LANGUAGE DerivingVia            #-}
+{-# LANGUAGE ScopedTypeVariables    #-}
+{-# LANGUAGE TypeApplications       #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-}
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE DerivingVia #-}
-{-# LANGUAGE TypeApplications #-}
 
 module NonNaive where
 
+import GHC.Generics
 import qualified Data.Set as S
 import Data.Set (Set)
 import Naive (Quad(..), QuadTree(..), unwrap, intersects, contains, getIntersect, containsPoint)
@@ -17,8 +19,9 @@ import Data.Monoid
 import GHC.Base (liftA2)
 import Linear.V2
 import Data.Foldable
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, fromJust)
 import Data.Set (Set)
+import Data.Coerce (coerce)
 
 type Region = Quad Rational
 
@@ -53,8 +56,8 @@ instance Applicative QT where
 
 
 
-qtRegion :: QT a -> Region
-qtRegion = mkRegionByPow . qt_root_pow
+qt_region :: QT a -> Region
+qt_region = mkRegionByPow . qt_root_pow
 
 
 mkRegionByPow :: Integer -> Region
@@ -140,7 +143,17 @@ sel2 :: Semilattice s => (a -> s) -> Maybe Region -> Region -> QuadTree a -> s
 sel2 _ Nothing _ _ = mempty
 sel2 f (Just area) r q = queryImpl f area r q
 
+atLeast :: Integer -> QT a -> QT a
+atLeast m qt@(QT _ n _)
+  | n < m = atLeast m $ realloc qt
+  | otherwise = qt
 
 elements :: Ord a => QT a -> Set a
-elements qt = S.singleton (qt_default qt) <> query S.singleton (qtRegion qt) qt
+elements qt = S.insert (qt_default qt) $ query S.singleton (qt_region qt) qt
+
+fuse :: Eq a => QT a -> QT a
+fuse (QT a n qt) = QT a n $ Raw.fuse qt
+
+overlay :: forall a. QT (Maybe a) -> QT (Maybe a) -> QT (Maybe a)
+overlay qt qt' = coerce @(QT (Last a)) $ coerce qt <> coerce qt'
 

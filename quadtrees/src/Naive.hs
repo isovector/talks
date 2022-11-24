@@ -196,11 +196,20 @@ regionify r (Tree qu) = Tree $ regionify <$> subdivide r <*> qu
 -- test f area r (Leaf a) = f a
 -- test f area r (Tree qu') = undefined
 
-overlay :: (a -> b -> c) -> QuadTree a -> QuadTree b -> QuadTree c
-overlay = liftA2
-
 -- rect :: a -> Region -> Squadt
 
+
+
+fuse :: Eq a => QuadTree a -> QuadTree a
+fuse (Leaf a) = Leaf a
+fuse (Tree q) = doFuse $ fmap fuse q
+
+doFuse :: Eq a => Quad (QuadTree a) -> QuadTree a
+doFuse (Quad (Leaf a) (Leaf b) (Leaf c) (Leaf d))
+  | a == b
+  , b == c
+  , c == d = Leaf a
+doFuse q = Tree q
 
 
 deriving via Ap QuadTree a instance Semigroup a => Semigroup (QuadTree a)

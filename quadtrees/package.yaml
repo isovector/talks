@@ -27,6 +27,10 @@ dependencies:
 - QuickCheck
 - checkers
 - containers
+- diagrams-lib
+- diagrams-rasterific
+- diagrams-core
+- active
 
 ghc-options:
 - -Wall

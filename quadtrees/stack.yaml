@@ -7,5 +7,12 @@ extra-deps:
 - ../../algebra-checkers
 - th-instance-reification-0.1.5.1
 - list-extras-0.4.1.6
-
+- diagrams-core-1.5.0.1
+- diagrams-lib-1.4.5.3
+- diagrams-rasterific-1.4.2.2
+- active-0.2.0.16
+- dual-tree-0.2.3.1
+- monoid-extras-0.6.1
+- lens-5.2
+- fsnotify-0.4.1.0
 

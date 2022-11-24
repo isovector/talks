@@ -18,6 +18,62 @@ packages:
       sha256: 1fe5ad799304cce0d005068d6bcbc0a8ce4c26c1268d3580aa4cbdf7279ae4f2
   original:
     hackage: list-extras-0.4.1.6
+- completed:
+    hackage: diagrams-core-1.5.0.1@sha256:1ae7c35c61da6acc4f0cba6ac9457da9b507ae95456512e76a7cc109003cb0c0,2899
+    pantry-tree:
+      size: 2018
+      sha256: 470a27b87368cf78bafe9f4852d574bb8be20938b166f23fc885cb701cfe5725
+  original:
+    hackage: diagrams-core-1.5.0.1
+- completed:
+    hackage: diagrams-lib-1.4.5.3@sha256:3254bde663b2ba9b24dc9b208d2955fe8d3d944d3c8c81df3990b696a72c5a13,8242
+    pantry-tree:
+      size: 11604
+      sha256: 028b923ef51ff6af4cea051f517d5af71e46bd64553ad69170206a3486228e8f
+  original:
+    hackage: diagrams-lib-1.4.5.3
+- completed:
+    hackage: diagrams-rasterific-1.4.2.2@sha256:4ebad1ff8338e8434e080048dbbc0d9f8fc82b43f4e8f1766ece5731492e73ee,3235
+    pantry-tree:
+      size: 1387
+      sha256: 3841568111786bb8a11a00b91b969b678929047854470e02609254571a0cde21
+  original:
+    hackage: diagrams-rasterific-1.4.2.2
+- completed:
+    hackage: active-0.2.0.16@sha256:0fc2d83741b9b09f9d3867d29b14d6f996aff1cec13810af1285788993b8b730,1788
+    pantry-tree:
+      size: 1017
+      sha256: ca6c7ed0c96b118e5d9bf67454eea4d0ea2d3a11d17a5f678489dfe846644f05
+  original:
+    hackage: active-0.2.0.16
+- completed:
+    hackage: dual-tree-0.2.3.1@sha256:fdae62646fb4383a49b2d30862bb0824a06114b81fc74b65f3246c6ceb096006,2758
+    pantry-tree:
+      size: 387
+      sha256: ba51993029abbd83d2208f3a2f95686295ca50361e7df1461e8d477f2918953e
+  original:
+    hackage: dual-tree-0.2.3.1
+- completed:
+    hackage: monoid-extras-0.6.1@sha256:03141a1513274a0618fccf9aac34923d3cef64b23df716d86d0decd50efeeb13,2284
+    pantry-tree:
+      size: 1187
+      sha256: 12de9527adfb564a9c61212e432fc536700a06d19948af41ef05b761f62d6053
+  original:
+    hackage: monoid-extras-0.6.1
+- completed:
+    hackage: lens-5.2@sha256:06029d80a926c466ae7e59e7e41f114e1f437526f776d022a8d0e19a6dc14576,14519
+    pantry-tree:
+      size: 8214
+      sha256: 4f7471aa8889560765270704888f0294339cff4b9393e4a9f1603a655e85f28b
+  original:
+    hackage: lens-5.2
+- completed:
+    hackage: fsnotify-0.4.1.0@sha256:44540beabea36aeeef930aa4d5f28091d431904bc9923b6ac4d358831c651235,2854
+    pantry-tree:
+      size: 1280
+      sha256: f8e89e81fe0ca6e285036e04b165119ccfc59e7e668c1bfc28927f39062c5949
+  original:
+    hackage: fsnotify-0.4.1.0
 snapshots:
 - completed:
     size: 586296
