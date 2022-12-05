@@ -1,0 +1,995 @@
+:title: Just Because It Workes Doesn't Mean It's Right
+:data-transition-duration: 150
+
+:css: fonts.css
+:css: presentation.css
+
+
+\newenvironment{table}{.. raw:: html
+
+  <table>}{
+  </table>
+}
+
+\newenvironment{hs}{.. code:: haskell
+}{}
+\newenvironment{raw}{.. raw:: html
+
+  <pre>}{
+  </pre>
+}
+\newenvironment{error}{.. raw:: html
+
+  <pre class="error">}{    </pre>
+}
+\newenvironment{custom}{.. raw:: html
+
+  <pre class="highlight code haskell">}{
+  </pre>
+}
+\newcommand{\$}{\begin{verbatim}$\end{verbatim}}
+\newcommand{\todo}[2]{#2}
+\newcommand{\note}[1]{<span class="new">#1</span>}
+\newcommand{\wat}[1]{<span class="wat">#1</span>}
+\newcommand{\type}[1]{<span class="type">#1</span>}
+\newcommand{\kind}[1]{<span class="kind">#1</span>}
+\newcommand{\syn}[2]{<span class="#1">#2</span>}
+\newcommand{\pragma}[1]{\{-# LANGUAGE #1 #-\}}
+\newcommand{\pragmasyn}[1]{\syn{cm}{\{-# LANGUAGE #1 #-\}}}
+\newcommand{\b}[1]{<pre class="highlight haskell code">#1</pre>}
+
+----
+
+:id: title
+
+.. raw:: html
+
+  <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML'></script>
+
+  <h1>Just Because It Workes Doesn't Mean It's Right</h1>
+  <h2>Finding Elegance in Quadtrees</h2>
+  <h3>A talk by <span>Sandy Maguire</span></h3>
+  <h4>reasonablypolymorphic.com</h4>
+
+----
+
+Slides available.
+=================
+
+\begin{raw}
+  <h3>reasonablypolymorphic.com/quadtrees</h3>
+\end{raw}
+
+----
+
+Build libraries, not macros.
+============================
+
+----
+
+Libraries
+=========
+
+Compositional.
+
+Reusable.
+
+Provide a layer of abstraction.
+
+----
+
+Macros
+======
+
+Automate away a tedious problem.
+
+Require an understanding of the task to be automated.
+
+----
+
+Macros do not provide abstraction boundaries.
+=============================================
+
+You are still responsible for understanding how the underlying machinery works.
+
+----
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+----
+
+An (almost) real life example.
+==============================
+
+We will make a simple data-ingestion platform for our life-tracking app.
+
+The program will provide an API with a unique endpoint for each distinct type of data we can ingest.
+
+----
+
+Survey says: big growth!
+========================
+
+The marketing team says that by the end of the year, we'll have over 500 different "events" we'll want to be able to
+ingest.
+
+----
+
+At this scale, *any* boilerplate is bad news.
+=============================================
+
+Boilerplate is boring to write and easy to get wrong.
+
+----
+
+A first attempt.
+================
+
+\begin{hs}
+  data Event = WakeUp
+             | Eat     Meal
+             | RockOut Song Duration
+\end{hs}
+
+----
+
+\begin{hs}
+  instance FromJSON Event where
+    parseJSON = parseWakeUp
+            <|> parseEat
+            <|> parseRockOut
+\end{hs}
+
+----
+
+The API.
+========
+
+\begin{hs}
+  type Req  = ReqBody '[JSON] Value
+  type Resp = Post    '[JSON] Response
+
+  type EventAPI =
+    "api" :> "event" :>
+               ( "wake-up"  :> Req :> Resp
+            :<|> "eat"      :> Req :> Resp
+            :<|> "rock-out" :> Req :> Resp
+               )
+\end{hs}
+
+----
+
+\begin{hs}
+  importEvent :: Value -> ExceptT ServantErr IO Response
+  importEvent blob =
+    case fromJSON blob of
+      Error   err -> throwM err
+      Success ev  -> pure \$ Response ev
+\end{hs}
+
+----
+
+\begin{hs}
+  wakeUp  = importEvent
+  eat     = importEvent
+  rockOut = importEvent
+
+  eventServer :: Server EventAPI
+  eventServer = serve \$
+    wakeUp :<|> eat :<|> rockOut
+\end{hs}
+
+----
+
+Notice how there is no type safety here.
+
+Our *wake-up* endpoint will happily accept a *eat* payload.
+
+----
+
+We can do better!
+=================
+
+Separate the constructors of our sum type into their own types.
+
+----
+
+\begin{hs}
+  data PayloadWakeUp  = PayloadWakeUp
+  data PayloadEat     = PayloadEat     Meal
+  data PayloadRockOut = PayloadRockOut Song Duration
+
+  instance FromJSON PayloadWakeUp
+  instance FromJSON PayloadEat
+  instance FromJSON PayloadRockOut
+\end{hs}
+
+----
+
+\begin{raw}
+  \pragma{TemplateHaskell}
+
+  data Event = EventWakeUp  \note{PayloadWakeUp}
+             | EventEat     \note{PayloadEat}
+             | EventRockOut \note{PayloadRockOut}
+
+  \note{makePrisms ''Event}
+\end{raw}
+
+----
+
+Optics provide type safety!
+===========================
+
+We can use these prisms to lift our payload types into our `Event` type.
+
+----
+
+\begin{raw}
+  \pragma{RankNTypes}
+
+  importEvent :: \note{FromJSON e}
+              \note{=> Prism' Event e}
+              -> Value
+              -> ExceptT ServantErr IO Response
+  importEvent \note{prism} blob =
+    case fromJSON blob of
+      Error   err -> throwM err
+      Success e   -> pure . Response \$ \note{review prism} e
+\end{raw}
+
+----
+
+Server upgrades.
+================
+
+\begin{raw}
+  wakeUp  = importEvent \note{_PayloadWakeUp}
+  eat     = importEvent \note{_PayloadEat}
+  rockOut = importEvent \note{_PayloadRockOut}
+
+  eventServer :: Server EventAPI
+  eventServer = \todo{notice there is no way to prove we have the right types here}{serve} \$
+    wakeUp :<|> eat :<|> rockOut
+\end{raw}
+
+----
+
+We've gained type safety!
+=========================
+
+The endpoints will no longer accept payloads of the wrong type.
+
+----
+
+The compiler doesn't know that our new payload types are related.
+
+----
+
+We can do better!
+=================
+
+Grouping our payload types together might provide opportunities for more clever tricks.
+
+----
+
+A brief interlude.
+==================
+
+On data kinds and type families.
+
+----
+
+Data kinds lifts *values* to **types**, and *types* to **kinds**.
+
+----
+
+Wat?
+====
+
+----
+
+\begin{hs}
+  data Bool = True
+            | False
+\end{hs}
+
+\begin{raw}
+\end{raw}
+
+
+begets, via DataKinds:
+
+\begin{custom}
+
+  \syn{kc}{kind} \kind{Bool} where
+    \syn{kc}{type} '\type{True}
+    \syn{kc}{type} '\type{False}
+\end{custom}
+
+----
+
+Type families.
+==============
+
+A **type family** is a function that returns a type.
+
+----
+
+A silly thing.
+==============
+
+\begin{hs}
+  type family NotInt t where
+    NotInt Int = ()
+    NotInt a   = a
+
+  foo :: NotInt Bool
+  foo = True
+
+  bar :: NotInt Int
+  bar = ()
+\end{hs}
+
+----
+
+Type families only exist at the type level.
+
+----
+
+We can write type families over DataKinds.
+
+----
+
+Back to our regularly scheduled talk.
+=====================================
+
+----
+
+\begin{hs}
+  \pragma{DataKinds   }
+  \pragma{TypeFamilies}
+
+  data EventType = WakeUp | Eat | RockOut
+\end{hs}
+
+\begin{custom}
+  \syn{kc}{data family} \syn{kt}{Payload} (\type{e} :: \kind{EventType})
+\end{custom}
+
+----
+
+\begin{raw}
+  data \note{instance} (\note{Payload '\type{WakeUp}}) =
+    PayloadWakeUp
+
+  data \note{instance} (\note{Payload '\type{Eat}}) =
+    PayloadEat Meal
+
+  data \note{instance} (\note{Payload '\type{RockOut}}) =
+    PayloadRockOut Song Duration
+
+  instance FromJSON (Payload '\type{WakeUp})
+  instance FromJSON (Payload '\type{Eat})
+  instance FromJSON (Payload '\type{RockOut})
+\end{raw}
+
+----
+
+Data types for free.
+====================
+
+Armed with this type family, we can get our old sum type for free.
+
+----
+
+\begin{custom}
+  \pragma{GADTs}
+
+  \syn{kc}{data} \syn{kt}{Event} \syn{kc}{where}
+    \syn{kt}{MkEvent} :: \syn{kt}{Payload} (\type{et} :: \kind{EventType}) -> \syn{kt}{Event}
+\end{custom}
+
+----
+
+\begin{raw}
+  \note{\pragma{AllowAmbiguousTypes}}
+  \note{\pragma{KindSignatures     }}
+  \note{\pragma{ScopedTypeVariables}}
+
+  importEvent :: \note{forall (\type{et} :: \kind{EventType})}
+               . FromJSON (Payload \type{et})
+              => Value
+              -> ExceptT ServantErr IO Response
+
+  importEvent blob =
+    case fromJSON blob of
+      Error err ->
+        throwM err
+
+      Success (e \note{:: Payload \type{et}}) ->
+        pure . Response \$ \note{MkEvent} e
+\end{raw}
+
+----
+
+Make it compile again.
+======================
+
+\begin{raw}
+  \note{\pragma{TypeApplications}}
+
+  wakeUp  = importEvent \note{@'\type{WakeUp}}
+  eat     = importEvent \note{@'\type{Eat}}
+  rockOut = importEvent \note{@'\type{RockOut}}
+
+  eventServer :: Server EventAPI
+  eventServer = serve \$
+    wakeUp :<|> eat :<|> rockOut
+\end{raw}
+
+----
+
+Notice that we've eliminated some boilerplate.
+
+We no longer need to keep our Event type in sync with the payload types.
+
+----
+
+We can do better!
+=================
+
+Generating the API definition automatically would remove a lot more boilerplate.
+
+The EventType now exists at the value level.
+
+----
+
+We might have a chance!
+=======================
+
+----
+
+API changes.
+============
+
+\begin{raw}
+  type Req  = ReqBody '[JSON] Value
+  type Resp = Post    '[JSON] Response
+
+  type EventAPI =
+    "api" :>
+      "event" :>
+        \note{Capture "event-type" EventType} :> Req :> Resp
+\end{raw}
+
+----
+
+Too clever for our own good.
+============================
+
+\begin{raw}
+  importEvent :: \note{EventType}
+              -> Value
+              -> ExceptT ServantErr IO Response
+
+  importEvent \note{et} blob =
+    case fromJSON blob of
+      Error err ->
+        throwM err
+
+      Success (e :: Payload \type{et}) ->
+        pure . Response \$ MkEvent e
+\end{raw}
+
+----
+
+It doesn't work.
+================
+
+\begin{error}
+  No instance for (FromJSON (Payload \type{et}))
+    arising from a use of `fromJSON'
+\end{error}
+
+Huh??
+
+----
+
+A brief interlude.
+==================
+
+On singletons.
+
+----
+
+Consider Unit.
+==============
+
+\begin{hs}
+  () :: ()
+\end{hs}
+
+If you know what value you have, you know its type, and vice-versa.
+
+----
+
+Singletons generalize this.
+===========================
+
+We'll introduce a new type for each value we'd like to move to the type level.
+
+----
+
+Sounds like DataKinds!
+======================
+
+But it's not.
+
+Unfortunately, not the same types as provided by DataKinds.
+
+----
+
+\begin{custom}
+  \pragma{PolyKinds }
+  \pragma{TypeInType}
+
+  \syn{kr}{data family} \syn{kt}{Sing} (\type{a} :: \kind{k})
+
+  \syn{kr}{class} \syn{kt}{SingKind} \kind{k} where
+    fromSing :: \syn{kt}{Sing} (\type{a} :: \kind{k}) -> k
+    toSing   :: k -> \syn{kt}{SomeSing} \kind{k}
+\end{custom}
+
+----
+
+\begin{custom}
+  \syn{kr}{data instance} (\syn{kt}{Sing} '\type{True})  = \syn{kt}{STrue}
+  \syn{kr}{data instance} (\syn{kt}{Sing} '\type{False}) = \syn{kt}{SFalse}
+
+
+  \syn{kr}{instance} \syn{kt}{SingKind} \kind{Bool} where
+    fromSing s = \syn{kr}{case} s \syn{kr}{of}
+      \syn{kt}{STrue}  -> \syn{kt}{True}
+      \syn{kt}{SFalse} -> \syn{kt}{False}
+
+    toSing b = \syn{kr}{case} b \syn{kr}{of}
+      \syn{kt}{True}  -> \syn{kt}{SomeSing STrue}
+      \syn{kt}{False} -> \syn{kt}{SomeSing SFalse}
+\end{custom}
+
+----
+
+It doesn't have to be so bad!
+=============================
+
+\begin{hs}
+  singletons [d|
+    data Bool = True
+              | False
+    |]
+\end{hs}
+
+----
+
+Not just for Bools!
+===================
+
+\begin{hs}
+  singletons [d|
+    data EventType = WakeUp
+                   | Eat
+                   | RockOut
+    |]
+\end{hs}
+
+----
+
+A helper function.
+==================
+
+\begin{custom}
+  withSomeSing :: \syn{kt}{SingKind} \kind{k}
+               => k
+               -> (\syn{kc}{forall} (\type{a} :: \kind{k}). \syn{kt}{Sing} \type{a} -> r)
+               -> r
+\end{custom}
+
+----
+
+Back to our regularly scheduled talk.
+=====================================
+
+Armed with this knowledge, we can lift our EventType value into the type system!
+
+----
+
+\begin{raw}
+  importEvent :: EventType
+              -> Value
+              -> ExceptT ServantErr IO Response
+
+  importEvent etype blob =
+    \note{withSomeSing etype \$ \ (_ :: Sing \type{et}) ->}
+      case fromJSON blob of
+        Error err ->
+          throwM err
+
+        Success (e :: Payload \type{et}) ->
+          pure . Response \$ MkEvent e
+\end{raw}
+
+----
+
+It still doesn't work.
+======================
+
+\begin{error}
+  No instance for (FromJSON (Payload \type{et}))
+    arising from a use of `fromJSON'
+\end{error}
+
+Huh?????????????
+
+Didn't we fix this?
+
+----
+
+Stupid compiler.
+================
+
+*We* know that `FromJSON` is total over `Payload`.
+
+But how can we prove it?
+
+----
+
+If it's too hard, prove it at the term level.
+=============================================
+
+\begin{custom}
+  dictFromJSON :: ( \syn{kt}{FromJSON} (\syn{kt}{Payload} '\type{WakeUp})
+                  , \syn{kt}{FromJSON} (\syn{kt}{Payload} '\type{Eat})
+                  , \syn{kt}{FromJSON} (\syn{kt}{Payload} '\type{RockOut})
+                  )
+               => \syn{kt}{Sing} (\type{a} :: \kind{EventType})
+               -> \syn{kt}{Dict} (\syn{kt}{FromJSON} (\syn{kt}{Payload} \type{a}))
+\end{custom}
+
+A `Dict c` is a proof that we have the constraint `c`.
+
+----
+
+\begin{custom}
+  dictFromJSON :: ( \syn{kt}{FromJSON} (\syn{kt}{Payload} '\type{WakeUp})
+                  , \syn{kt}{FromJSON} (\syn{kt}{Payload} '\type{Eat})
+                  , \syn{kt}{FromJSON} (\syn{kt}{Payload} '\type{RockOut})
+                  )
+               => \syn{kt}{Sing} (\type{a} :: \kind{EventType})
+               -> \syn{kt}{Dict} (\syn{kt}{FromJSON} (\syn{kt}{Payload} \type{a}))
+  dictFromJSON s = \syn{kc}{case} s \syn{kc}{of}
+    \syn{kt}{SWakeUp}  -> \syn{kt}{Dict}
+    \syn{kt}{SEat}     -> \syn{kt}{Dict}
+    \syn{kt}{SRockOut} -> \syn{kt}{Dict}
+\end{custom}
+
+----
+
+\begin{raw}
+  importEvent :: EventType
+              -> Value
+              -> ExceptT ServantErr IO Response
+
+  importEvent etype blob =
+    withSomeSing etype \$ \ (\note{setype} :: Sing \type{et}) ->
+      \note{case dictFromJSON setype of}
+        \note{Dict ->}
+          case fromJSON blob of
+            Error err ->
+              throwM err
+
+            Success (e :: Payload \type{et}) ->
+              pure . Response \$ MkEvent e
+\end{raw}
+
+----
+
+So groovy.
+==========
+
+\begin{raw}
+  eventServer :: Server EventAPI
+  eventServer = serve \note{importEvent}
+\end{raw}
+
+----
+
+Compiler driven coding.
+=======================
+
+It is now impossible to incorrectly hook up a new EventType:
+
+* Exhaustiveness checking of dictFromJSON ensures we made a new payload type and gave it a ToJSON instance.
+
+* The API definitions and server handlers write themselves.
+
+----
+
+The other half of the problem.
+==============================
+
+We also want to serialize these new events into a single pipe for downstream consumption.
+
+For simplicitly we'll also use JSON going downstream.
+
+----
+
+We know the drill.
+==================
+
+\begin{custom}
+  dictToJSON :: ( \syn{kt}{ToJSON} (\syn{kt}{Payload} '\type{WakeUp})
+                , \syn{kt}{ToJSON} (\syn{kt}{Payload} '\type{Eat})
+                , \syn{kt}{ToJSON} (\syn{kt}{Payload} '\type{RockOut})
+                )
+             => \syn{kt}{Sing} (\type{a} :: \kind{EventType})
+             -> \syn{kt}{Dict} (\syn{kt}{ToJSON} (\syn{kt}{Payload} \type{a}))
+  dictToJSON s = \syn{kc}{case} s \syn{kc}{of}
+    \syn{kt}{SWakeUp}  -> \syn{kt}{Dict}
+    \syn{kt}{SEat}     -> \syn{kt}{Dict}
+    \syn{kt}{SRockOut} -> \syn{kt}{Dict}
+\end{custom}
+
+----
+
+We can do better!
+=================
+
+Besides the constraints under consideration, `dictToJSON` is identical to `dictFromJSON`.
+
+----
+
+\begin{raw}
+  \note{\pragma{ConstraintKinds}}
+
+  dictPayload :: ( \note{c} (Payload '\type{WakeUp})
+                 , \note{c} (Payload '\type{Eat})
+                 , \note{c} (Payload '\type{RockOut})
+                 )
+              => Sing (\type{a} :: \kind{EventType})
+              -> Dict (\note{c} (Payload \type{a}))
+  dictPayload s = case s of
+    SWakeUp  -> Dict
+    SEat     -> Dict
+    SRockOut -> Dict
+\end{raw}
+
+We can now lift *any* constraint that is total over `Payload`.
+
+----
+
+Let's use it to implement ToJSON over Events.
+
+----
+
+\begin{hs}
+  instance ToJSON Event where
+    toJSON (MkEvent payload) = toJSON payload
+\end{hs}
+
+----
+
+It doesn't work.
+================
+
+\begin{error}
+  No instance for (ToJSON (Payload \type{et}))
+    arising from a use of `toJSON'
+\end{error}
+
+Oh yeah. It doesn't lift automatically.
+
+----
+
+We need a singleton to get the Dict.
+====================================
+
+But we don't have one.
+
+But we used to!
+
+----
+
+Save that singleton.
+====================
+
+\begin{raw}
+  data Event where
+    MkEvent :: \note{Sing (\type{et} :: \kind{EventType})}
+            -> Payload \type{et}
+            -> Event
+\end{raw}
+
+----
+
+\begin{hs}
+  instance ToJSON Event where
+    toJSON (MkEvent setype payload) =
+      case dictPayload @ToJSON setype of
+        Dict ->
+          object [ "type"    .= fromSing setype
+                 , "payload" .= payload
+                 ]
+\end{hs}
+
+We can write a similar `FromJSON` instance.
+
+----
+
+We're done!
+===========
+
+But what can we take away?
+
+----
+
+We didn't invent the Event type.
+================================
+
+In the literature, the combination of a value and a type that *depends* on that type is known as a **dependent pair**.
+
+----
+
+We can write the type of a dependent pair like this:
+
+\newcommand{\spacer}{\begin{raw}&nbsp\end{raw}}
+
+$$\\sum_\\text{a :: EventType} \\text{Payload}(a)$$
+
+----
+
+Highschool algebra.
+===================
+
+$$\\sum_\\text{a :: EventType} \\text{Payload}(a) = \\text{Payload}(a_1) + \\text{Payload}(a_2) + \\cdots + \\text{Payload}(a_n)$$
+
+----
+
+Look familiar?
+==============
+
+\begin{hs}
+  data Event = EventWakeUp  (Payload WakeUp)
+             | EventEat     (Payload Eat)
+             | EventRockOut (Payload RockOut)
+\end{hs}
+
+This type is perfectly captured by the dependent pair.
+
+----
+
+More generally.
+===============
+
+$$(a, b) :: \\sum_\\text{a :: A} \\text{F}(a)$$
+
+\newcommand{\spacer}{\begin{raw}&nbsp\end{raw}}
+
+We can encode this directly in Haskell.
+
+----
+
+Namesake of the talk.
+=====================
+
+\begin{custom}
+  \syn{kc}{data} \syn{kt}{Some1} (f :: \kind{k} -> \kind{Type}) \syn{kc}{where}
+    \syn{kt}{Some1} :: \syn{kt}{Sing} (\type{a} :: \kind{k}) -> f \type{a} -> \syn{kt}{Some1} f
+\end{custom}
+
+----
+
+Specializing.
+=============
+
+\begin{raw}
+  type Event = \note{Some1 Payload}
+\end{raw}
+
+----
+
+But that's not all.
+===================
+
+We can generalize our `dictPayload` function as well:
+
+\begin{custom}
+  \syn{kc}{class} \syn{kt}{Dict1} (c :: \kind{output} -> \kind{Constraint})
+              (f :: \kind{input}  -> \kind{output}) \syn{kc}{where}
+    dict1 :: \syn{kt}{Sing} (\type{a} :: \kind{input}) -> \syn{kt}{Dict} (c (f a))
+\end{custom}
+
+----
+
+It comes pre-assembled.
+=======================
+
+All of this machinery has already been built for you!
+
+https://hackage.haskell.org/package/exinst
+
+It also provides instances lifting Dict1 over Some1, as well as tons of other goodies.
+
+----
+
+Thanks for listening!
+=====================
+
+Questions?
+==========
+

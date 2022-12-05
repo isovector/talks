@@ -31,6 +31,7 @@ dependencies:
 - diagrams-rasterific
 - diagrams-core
 - active
+- hspec
 
 ghc-options:
 - -Wall
@@ -54,3 +55,4 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - quadtrees
+    - hspec-discover

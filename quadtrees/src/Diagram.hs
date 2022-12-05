@@ -11,7 +11,7 @@ module Diagram where
 import NonNaive hiding (scale)
 import Diagrams.Prelude hiding (atLeast, E)
 import Diagrams.Backend.Rasterific
-import Naive hiding (overlay, fuse, fill)
+import Naive hiding (fuse, fill)
 import Data.Ratio (approxRational)
 import Debug.Trace (traceShowId, traceM)
 import Data.Maybe (fromMaybe)
@@ -21,9 +21,9 @@ import Data.List (tails, zip5, inits)
 import Test.QuickCheck.Modifiers
 
 
-draw :: QuadTree (Colour Double) -> Diagram B
-draw (Leaf co) = rect 1 1 # fc co # lwL 0.08
-draw (Tree (Quad tl tr bl br)) =
+draw :: Tree (Colour Double) -> Diagram B
+draw (Fill co) = rect 1 1 # fc co # lwL 0.08
+draw (Split (Quad tl tr bl br)) =
   let redraw q =  draw q # scale 0.5
    in
     (redraw tl # alignBR ||| redraw tr # alignBL)
