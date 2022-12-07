@@ -201,7 +201,99 @@ Definitely a *macro* invocation!
 
 ---
 
-TODO: what is a quadtree
+# A Quick Quadtree Introduction
+
+```
+┌───────────────┐
+│               │
+│               │
+│               │
+│               │
+│               │
+│               │
+│               │
+│      1        │
+│               │
+│               │
+│               │
+│               │
+│               │
+│               │
+│               │
+└───────────────┘
+```
+
+---
+
+# A Quick Quadtree Introduction
+
+```
+┌───────┬───────┐
+│       │       │
+│       │       │
+│       │       │
+│   2   │   1   │
+│       │       │
+│       │       │
+│       │       │
+├───────┼───────┤
+│       │       │
+│       │       │
+│       │       │
+│   1   │   1   │
+│       │       │
+│       │       │
+│       │       │
+└───────┴───────┘
+```
+
+---
+
+# A Quick Quadtree Introduction
+
+```
+┌───┬───┬───────┐
+│   │   │       │
+│ 2 │ 2 │       │
+│   │   │       │
+├───┼───┤   1   │
+│   │   │       │
+│ 2 │ 7 │       │
+│   │   │       │
+├───┴───┼───────┤
+│       │       │
+│       │       │
+│       │       │
+│   1   │   1   │
+│       │       │
+│       │       │
+│       │       │
+└───────┴───────┘
+```
+
+---
+
+# A Quick Quadtree Introduction
+
+```
+┌───┬───┬───┬───┐
+│   │   │   │   │
+│ 2 │ 2 │ 1 │ 1 │
+│   │   │   │   │
+├───┼─┬─┼─┬─┼───┤
+│   │0│0│0│0│   │
+│ 2 ├─┼─┼─┼─┤ 1 │
+│   │7│7│1│1│   │
+├───┴─┴─┼─┴─┴───┤
+│       │       │
+│       │       │
+│       │       │
+│   1   │   1   │
+│       │       │
+│       │       │
+│       │       │
+└───────┴───────┘
+```
 
 ---
 
@@ -289,14 +381,11 @@ intersect :: Rect -> Rect -> Rect
 ---
 
 ```haskell
-  bool (get q p) (Just a) (contains r p)
-=  -- sym (get/fill)
   get (fill r a q)
 =  -- fill bounded
   get (fill (intersect r (bounds q)) a q)
-=  -- get/fill
-  bool (get q p) (Just a) (contains (intersect r (bounds q)) p)
 ```
+
 
 . . .
 
@@ -316,11 +405,6 @@ intersect r _ = r
 
 # WE FOOLED OURSELVES
 
-> TODO(sandy): what makes a good library?
-> it helps you not write bugs
-> because you have a good mental model of how it works
-
-
 . . .
 
 It's **really** hard to come up with good laws!
@@ -338,115 +422,6 @@ Two options:
 * Do something different.
 
 > TODO: 15m
-
----
-
-# What makes a good library?
-
-Interplay between:
-
-1. Flexibility
-2. Elegance
-3. Correctness
-
----
-
-# Flexibility
-
-- Our library should solve more problems than we can think of.
-
-. . .
-
-- Necessary for longevity.
-
-. . .
-
-- Organized around principles we already understand; e.g. typeclasses.
-
----
-
-# Elegance
-
-- It should *feel good* to use.
-
-. . .
-
-- *Parsimonious* in its primitives, and *symmetric* in what it provides.
-
-. . .
-
-- No weird axioms. No "extra baggage."
-
-. . .
-
----
-
-# Elegance
-
-```haskell
-lookup ::         Container k v -> k -> Maybe v
-```
-
----
-
-# Elegance
-
-```haskell
-lookup :: Eq v => Container k v -> k -> Maybe v
-```
-
----
-
-# Correctness
-
-. . .
-
-- Organized around a guiding metaphor.
-
-. . .
-
-- *Invites a new way of looking at the problem.*
-
-. . .
-
-- Correct with respect to the metaphor. Never breaks the abstraction.
-
-
----
-
-# Revisiting the API
-
-```haskell
-data QT a
-data Rect
-data Point
-
-empty   :: Rect -> QT a
-bounds  :: QT a -> Rect
-fill    :: Rect -> a -> QT a -> QT a
-get     :: QT a -> Point -> Maybe a
-hitTest :: QT a -> Rect -> Bool
-```
-
-> Is it **flexible**?
-
----
-
-# Revisiting the API
-
-```haskell
-data QT a
-data Rect
-data Point
-
-empty   :: Rect -> QT a
-bounds  :: QT a -> Rect
-fill    :: Rect -> a -> QT a -> QT a
-get     :: QT a -> Point -> Maybe a
-hitTest :: QT a -> Rect -> Bool
-```
-
-> Is it **elegant**?
 
 ---
 
@@ -788,30 +763,10 @@ The answers to these questions inform one another.
 # Implementation
 
 ```haskell
-data Quad a = Quad a a
-                   a a
-  deriving instance Functor
-```
-
-```haskell
-instance Applicative Quad where
-  pure a = Quad a a a a
-  Quad f1 f2
-       f3 f4 <*> Quad a1 a2
-                      a3 a4 =
-    Quad (f1 a1) (f2 a2)
-         (f3 a3) (f4 a4)
-```
-
----
-
-# Implementation
-
-```haskell
-data Tree a
+data QuadTree a
   = Fill a
-  | Split (Tree a) (Tree a)
-          (Tree a) (Tree a)
+  | Split (QuadTree a) (QuadTree a)
+          (QuadTree a) (QuadTree a)
 ```
 
 . . .
@@ -819,27 +774,286 @@ data Tree a
 Why not:
 
 ```haskell
-data Tree a
+data Quad a = Quad a a
+                   a a
+
+data QuadTree a
   = Fill a
-  | Split (Quad (Tree a))
+  | Split (Quad (QuadTree a))
 ```
 
-. . .
+---
+
+# Implementation
 
 From the zoo:
 
 ```haskell
-type Tree = Free Quad
+data Free f a
+  = Pure a
+  | Wrap (f (Free f a))
+```
+
+```haskell
+type QuadTree = Free Quad
 ```
 
 This is the free monad on `Quad`s!
 
+---
+
+**This is dangerously persuasive.**
+
+We have implemented a data structure in turns of the Functional Programming
+Pantheon.
+
+. . .
+
+It can be tempting to say our work here is done.
+
+. . .
+
+But, it doesn't correspond at all with our desired API or semantics.
+
+---
+
+**This is dangerously persuasive.**
+
+If we were writing a macro; we'd be done at this point.
+
+. . .
+
+Hackage stops here ± some helpers
+
+---
+
+# Implementation
+
+Desired API:
+
+```haskell
+data QT a
+instance Applicative QT
+instance Monoid QT
+
+rect    :: a -> a -> Rect -> QT a
+get     :: Point -> QT a -> a
+hitTest :: Monoid m => (a -> m) -> QT a -> Rect -> m
+```
+
+Contrast against:
+
+```haskell
+data QuadTree a = Fill a | Split (Quad (QuadTree a))
+instance Monad QuadTree
+instance Monoid QuadTree
+```
+
+. . .
+
+Biggest problem: `QuadTree` has no notion of space.
+
+---
+
+# Implementation
+
+Maybe parameterize `QuadTree` on the rectangle it bounds; enforce this as an
+invariant:
+
+```haskell
+getImpl     :: Point -> QT (Rect, a) -> a
+hitTestImpl :: Monoid m => (a -> m) -> QT (Rect, a) -> Rect -> m
+```
+
+. . .
+
+Problem: **all spatial data is at the leafs.**
+
+---
+
+# Implementation
+
+Instead, compose with the `(,) Rect` outside:
+
+```haskell
+getImpl     :: Point -> (Rect, QT a) -> a
+hitTestImpl :: Monoid m => (a -> m) -> (Rect, QT a) -> Rect -> m
+```
+
+. . .
+
+Maybe this is our wrapper type:
+
+```haskell
+data QT a = QT
+  { qt_bounds :: Rect
+  , qt_tree   :: QuadTree a
+  }
+```
+
+. . .
+
+What if we lookup a point **outside of bounds?**
+
+---
+
+# Implementation
+
+```haskell
+data QT a = QT
+  { qt_bounds     :: Rect
+  , qt_tree       :: QuadTree a
+  }
+```
+
+---
+
+# Implementation
+
+```haskell
+data QT a = QT
+  { qt_bounds     :: Rect
+  , qt_tree       :: QuadTree a
+  , qt_everywhere :: a
+  }
+```
+
+. . .
+
+Getting an `Applicative` instance is hard.
+
+---
+
+# Applicatives
+
+*Fact:*
+
+. . .
+
+> products of "monoidal" types have obvious applicative instances.
+
 . . .
 
 ```haskell
-deriving
-  via (Free Quad)
-  instance (Functor, Applicative, Monad) Tree
+data Ex a = Ex1
+  { foo :: [a]        -- has applicative
+  , bar :: State s a  -- has applicative
+  , qux :: Sum Int    -- has monoid
+  }
 ```
 
+---
+
+# Applicatives
+
+*Fact:*
+
+> products of "monoidal" types have obvious applicative instances.
+
+```haskell
+data Ex a = Ex1
+  { foo :: [a]        -- has applicative
+  , bar :: State s a  -- has applicative
+  , qux :: Sum Int    -- has monoid
+  }
+
+instance Applicative Ex where
+  pure a = Ex (pure a)  -- use applicative
+              (pure a)  -- use applicative
+              mempty    -- use monoid
+  Ex fx fy fz <*> Ex ax ay az =
+    Ex (fx <*> ax)  -- use applicative
+       (fy <*> ay)  -- use applicative
+       (fz <> az)   -- use monoid
+```
+
+. . .
+
+How can we apply this fact to `QT`?
+
+---
+
+# Implementation
+
+```haskell
+data QT a = QT
+  { qt_bounds     :: Rect
+  , qt_tree       :: QuadTree a  -- has applicative
+  , qt_everywhere :: a           -- has applicative
+  }
+```
+
+Need some sort of monoid or applicative on `Rect`.
+
+. . .
+
+Obvious idea: take the bounding volume:
+
+---
+
+# Bounding Volume
+
+```
+┌───────────┐
+│           │
+│           │
+│     ┌─────┼─────┐
+│     │     │     │
+└─────┼─────┘     │
+      │           │
+      │           │
+      └───────────┘
+```
+
+---
+
+# Bounding Volume
+
+```
+┌─────────────────┐
+│                 │
+│                 │
+│                 │
+│                 │
+│                 │
+│                 │
+│                 │
+└─────────────────┘
+```
+
+. . .
+
+Right idea; but has a **maximally antagonistic case.**
+
+---
+
+# Bounding Volume
+
+```
+┌─────────────┐
+│┌────────────┼┐
+││            ││
+││            ││
+││            ││
+││            ││
+└┼────────────┘│
+ └─────────────┘
+```
+
+---
+
+# Bounding Volume
+
+```
+┌──────┬──────┐
+│┌─────┼┬─────┼┐
+││     ││     ││
+├┼─────┼┼─────┤│
+│├─────┼┼─────┼┤
+││     ││     ││
+└┼─────┴┼─────┘│
+ └──────┴──────┘
+```
+
+**Nothing lines up!**
 
