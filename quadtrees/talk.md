@@ -31,6 +31,134 @@ Today's slides:
 
 ---
 
+# A Philosophical Dichotomy
+
+Nobody tries to write bugs.
+
+. . .
+
+Bugs arise through local/global impedience mismatches.
+
+. . .
+
+Bugs in implementation are probably bugs in design.
+
+---
+
+# A Philosophical Dichotomy
+
+As programmers we each fall into two roles:
+
+- users of libraries
+- writers of libraries
+
+These roles come with drastically different philosophies.
+
+---
+
+# A Philosophical Dichotomy
+
+As a *library user*:
+
+. . .
+
+- Software systems are too big to fit into my brain. I am unable to audit all
+  code I use.
+
+. . .
+
+- Therefore, I must have a great deal of trust when I use libraries.
+
+. . .
+
+- Justifiably angry when that trust is broken.
+
+---
+
+# A Philosophical Dichotomy
+
+As a *library writer*:
+
+. . .
+
+- Likely written as part of a larger problem; separated afterwards.
+
+. . .
+
+- Lots of implicit assumptions about the code I've separated it from.
+
+. . .
+
+- I want to implement what's most convenient.
+
+. . .
+
+- If I am conscientious, I will document dodgy decisions made in the name of
+  convenience.
+
+---
+
+**These two roles are fundamentally in tension.**
+
+. . .
+
+Users want *libraries.*
+
+Writers provide *macros.*
+
+---
+
+# Libraries vs Macros
+
+Libraries:
+
+
+- Separate *what* from *how*.
+
+. . .
+
+- Do not require an understanding of their implementation.
+
+. . .
+
+- Create a new semantic domain you can reason about.
+
+. . .
+
+- Can solve problems the author never anticipated.
+
+. . .
+
+- Are pulled in before you have a solution in mind.
+
+. . .
+
+&nbsp;
+
+This is not true of most software we link in.
+
+---
+
+# Libraries vs Macros
+
+Macros:
+
+- Automate tedious tasks.
+
+. . .
+
+- Are explicitly about "how", never "why"
+
+. . .
+
+- Present pre-baked recipes; hope your problem can be solved by one.
+
+---
+
+**Enough philosophy.**
+
+---
+
 # The Problem
 
 I wanted to build a scatter plot with labels.
@@ -65,6 +193,16 @@ I wanted to build a scatter plot with labels.
 
 - I'll use a quadtree!
 
+&nbsp;
+
+. . .
+
+Definitely a *macro* invocation!
+
+---
+
+TODO: what is a quadtree
+
 ---
 
 # Unimpressed
@@ -90,157 +228,7 @@ Might as well just use `Map Location a`.
 
 ---
 
-# I guess I'll write my own.
-
----
-
-# Deeper problems in software.
-
-We keep slapping solutions onto half-understood problems.
-
----
-
-I want non-overlapping labels.
-
-. . .
-
--> I need a spatial data structure.
-
-. . .
-
--> I'll use a quadtree.
-
-. . .
-
--> The quadtree libraries don't do what I want.
-
-. . .
-
--> I'll write my own.
-
----
-
-```haskell
-data Quad a = Quad a a
-                   a a
-```
-
-. . .
-
-```haskell
-  deriving stock ( Eq, Ord, Show, Generic
-                 , Functor, Foldable, Traversable
-                 )
-```
-
----
-
-```haskell
-instance Applicative Quad where
-  pure a = Quad a a
-                a a
-```
-
-. . .
-
-```haskell
-  liftA2 f (Quad l1 l2
-                 l3 l4) (Quad r1 r2
-                              r3 r4)
-    = Quad (f l1 r1) (f l2 r2)
-           (f l3 r3) (f l4 r4)
-```
-
----
-
-```haskell
-data Tree a where
-  Fill  :: a -> Tree a
-  Split :: Quad (Tree a) -> Tree a
-
-  deriving Functor
-```
-
----
-
-```haskell
-instance Applicative Tree where
-  pure = Fill
-
-  liftA2 = ...
-```
-
----
-
-```haskell
-instance Applicative Tree where
-  ...
-
-  liftA2 f (Fill a) (Fill b) =
-    Fill $ f a b
-```
-
-. . .
-
-```haskell
-  liftA2 f (Split a) (Split b) =
-    Split $ liftA2 (liftA2 f) a b
-```
-
----
-
-```haskell
-instance Applicative Tree where
-  ...
-
-  liftA2 f (Fill a) (Split b) =
-    liftA2 f
-      (Split (pure @Quad a))
-      (Split b)
-
-  liftA2 f (Split a) (Fill b) =
-    liftA2 f
-      (Split a)
-      (Split (pure @Quad b))
-```
-
----
-
-```haskell
-deriving via (Ap Tree)
-  instance Semigroup a => Semigroup (Tree a)
-
-deriving via (Ap Tree)
-  instance Monoid a => Monoid (Tree a)
-```
-
----
-
-```
-┌───┬───┬───────┐   ┌───┬───┬───────┐   ┌───┬───┬───────┐
-│ 1 │ 2 │       │   │ 0 │ 2 │       │   │ 1 │ 4 │       │
-├───┼───┤   1   │   ├───┼───┤   0   │   ├───┼───┤   1   │
-│ 1 │ 1 │       │   │ 2 │ 6 │       │   │ 3 │ 7 │       │
-├───┴───┼───────┤ + ├───┼───┼───────┤ = ├───┼───┼───────┤
-│       │       │   │ 2 │ 3 │       │   │ 7 │ 8 │       │
-│   5   │   8   │   ├───┼───┤   1   │   ├───┼───┤   9   │
-│       │       │   │ 4 │ 1 │       │   │ 9 │ 6 │       │
-└───────┴───────┘   └───┴───┴───────┘   └───┴───┴───────┘
-```
-
----
-
----
-
-NEW
-
----
-
-problem
-
-quadtree
-
-hackage doesnt help
+**I guess I'll write my own.**
 
 ---
 
@@ -690,5 +678,168 @@ forall qf qa.
 ---
 
 # Addressing Asymmetries
+
+```haskell
+fill :: Rect -> a -> QT a -> QT a
+
+forall r a q.
+  ⟦ fill r a q ⟧ = \p ->
+    if contains r p
+      then a
+      else ⟦ q ⟧ p
+```
+
+This is complicated!
+
+Decompose it?
+
+. . .
+
+
+```haskell
+rect :: a -> a -> Rect -> QT a
+
+forall r a q.
+  ⟦ rect f t r ⟧ = \p ->
+    if contains r p
+      then t
+      else f
+```
+
+---
+
+# Addressing Asymmetries
+
+```haskell
+fill :: Rect -> a -> QT a -> QT a
+fill r a q
+  = fromMaybe
+      <$> q
+      <*> rect Nothing (Just a) r
+```
+
+Note: this is a *definition*!
+
+---
+
+# Addressing Asymmetries
+
+```haskell
+hitTest :: QT a -> Rect -> Bool
+```
+
+Needs an update.
+
+. . .
+
+```haskell
+hitTest :: (a -> Bool) -> QT a -> Rect -> Bool
+```
+
+What is this `Bool`?
+
+. . .
+
+```haskell
+hitTest :: (a -> Any) -> QT a -> Rect -> Bool
+```
+
+. . .
+
+Generalize to any monoid!
+
+```haskell
+hitTest :: Monoid m => (a -> m) -> QT a -> Rect -> m
+```
+
+---
+
+# Correctness of hitTest
+
+```haskell
+forall r f q.
+  hitTest f q r
+    = foldMap (f . get q) $ pointsInRect r
+
+pointsInRect :: Rect -> [Point]
+```
+
+---
+
+# Intermission
+
+---
+
+# Remaining Questions
+
+- What is `Point`?
+
+. . .
+
+- How do we actually implement this?
+
+. . .
+
+
+The answers to these questions inform one another.
+
+---
+
+# Implementation
+
+```haskell
+data Quad a = Quad a a
+                   a a
+  deriving instance Functor
+```
+
+```haskell
+instance Applicative Quad where
+  pure a = Quad a a a a
+  Quad f1 f2
+       f3 f4 <*> Quad a1 a2
+                      a3 a4 =
+    Quad (f1 a1) (f2 a2)
+         (f3 a3) (f4 a4)
+```
+
+---
+
+# Implementation
+
+```haskell
+data Tree a
+  = Fill a
+  | Split (Tree a) (Tree a)
+          (Tree a) (Tree a)
+```
+
+. . .
+
+Why not:
+
+```haskell
+data Tree a
+  = Fill a
+  | Split (Quad (Tree a))
+```
+
+. . .
+
+From the zoo:
+
+```haskell
+type Tree = Free Quad
+```
+
+This is the free monad on `Quad`s!
+
+. . .
+
+```haskell
+deriving
+  via (Free Quad)
+  instance (Functor, Applicative, Monad) Tree
+```
 
 
