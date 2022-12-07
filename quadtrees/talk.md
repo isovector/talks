@@ -861,8 +861,8 @@ Maybe parameterize `QuadTree` on the rectangle it bounds; enforce this as an
 invariant:
 
 ```haskell
-getImpl     :: Point -> QT (Rect, a) -> a
-hitTestImpl :: Monoid m => (a -> m) -> QT (Rect, a) -> Rect -> m
+getImpl     :: Point -> QuadTree (Rect, a) -> a
+hitTestImpl :: Monoid m => (a -> m) -> QuadTree (Rect, a) -> Rect -> m
 ```
 
 . . .
@@ -876,8 +876,8 @@ Problem: **all spatial data is at the leafs.**
 Instead, compose with the `(,) Rect` outside:
 
 ```haskell
-getImpl     :: Point -> (Rect, QT a) -> a
-hitTestImpl :: Monoid m => (a -> m) -> (Rect, QT a) -> Rect -> m
+getImpl     :: Point -> (Rect, QuadTree a) -> a
+hitTestImpl :: Monoid m => (a -> m) -> (Rect, QuadTree a) -> Rect -> m
 ```
 
 . . .
@@ -1056,4 +1056,276 @@ Right idea; but has a **maximally antagonistic case.**
 ```
 
 **Nothing lines up!**
+
+---
+
+# Bounding Volumes
+
+Desirable to find "quantized" bounding regions that we can cheaply merge.
+
+. . .
+
+*Idea:* take inspiration from other amortized data structures.
+
+---
+
+# Bounding Volumes
+
+*Idea:* Create a (0,0)-centered region with size $2ⁿ$
+
+
+```
+┌───2ⁿ──┐
+┌───┬───┐
+│   │   │
+│ 1 │ 2 │
+│   │   │
+├───┼───┤ 0
+│   │   │
+│ 3 │ 4 │
+│   │   │
+└───┴───┘
+```
+
+---
+
+# Bounding Volumes
+
+We can then "resize" the canvas to size $2ⁿ⁺¹$
+
+```
+┌─────2ⁿ⁺¹──────┐
+┌───┬───┬───┬───┐
+│   │   │   │   │
+│ 0 │ 0 │ 0 │ 0 │
+│   │   │   │   │
+├───┼───┼───┼───┤
+│   │   │   │   │
+│ 0 │ 1 │ 2 │ 0 │
+│   │   │   │   │
+├───┼───┼───┼───┤ 0
+│   │   │   │   │
+│ 0 │ 3 │ 4 │ 0 │
+│   │   │   │   │
+├───┼───┼───┼───┤
+│   │   │   │   │
+│ 0 │ 0 │ 0 │ 0 │
+│   │   │   │   │
+└───┴───┴───┴───┘
+```
+
+This looks like it will work!
+
+---
+
+
+# Implementation
+
+Recall, looking for a monoid instance:
+
+```haskell
+data QT a = QT
+  { qt_bounds     :: Max Integer  -- has semigroup
+  , qt_tree       :: QuadTree a   -- has applicative
+  , qt_everywhere :: a            -- has applicative
+  }
+
+boundingVolume :: Integer -> Rect
+```
+
+. . .
+
+A semigroup is not a monoid.
+
+. . .
+
+But we can generate one freely!
+
+---
+
+# Implementation
+
+
+```haskell
+data QT a
+  = QT
+    { qt_bounds     :: Max Integer
+    , qt_tree       :: QuadTree a
+    , qt_everywhere :: a
+    }
+  | Everywhere
+    { qt_everywhere :: a
+    }
+```
+
+This looks good!
+
+---
+
+# A Problem in Semantics
+
+```haskell
+hitTest :: Monoid m => (a -> m) -> QT a -> Rect -> m
+hitTest f qt r
+  = isEmptyRect r = mempty
+  | otherwise =
+      case qt of
+        Everywhere a -> f a
+        QT b q a -> ...
+          -- check each `Split` to see if it intersects, if so, recurse
+          -- call `f` on every intersecting `Fill`
+```
+
+. . .
+
+What goes wrong when `f = const (Sum 1)`?
+
+. . .
+
+We can observe the number of intersecting quadrants
+
+&nbsp;
+
+**THIS IS NOT A PROPERTY** of `Point -> a`
+
+---
+
+**WE FOOLED OURSELVES! AGAIN!**
+
+&nbsp;
+
+We can observe something of the interpretation that *doesn't hold in the
+sematics.*
+
+---
+
+# Fixing It
+
+This is not too bad of a problem.
+
+We have many axes of freedom in our API design to make everything work out.
+
+---
+
+# Fixing It
+
+**Problem**: we *compress most space.*
+
+. . .
+
+**Bad solution**: expand that space out again.
+
+. . .
+
+&nbsp;
+
+**Good solution**: patch `hitTest`'s type to make it unobservable.
+
+---
+
+# Fixing It
+
+```
+┌─┬─┬─┬─┬─┬─┬─┬─┐
+│1│2│3│4│5│6│7│9│
+├─┼─┼─┼─┼─┼─┼─┼─┤
+│a│b│c│d│e│f│g│h│
+├─┴─┼─┴─┼─┴─┼─┴─┤
+│   │   │   │   │
+│   │   │   │   │
+│   │   │   │   │
+├───┴───┼───┴───┤
+│       │       │
+│       │       │
+│       │       │
+│       │       │
+│       │       │
+│       │       │
+│       │       │
+└───────┴───────┘
+```
+
+. . .
+
+Ideal if `hitTest f = getDual . hitTest (Dual . f)`.
+
+. . .
+
+*We want commutativity of `f`*
+
+---
+
+# Fixing It
+
+`Split . pure . Fill` must be indistinguishable from `Fill`!
+
+```
+┌───┬───┐   ┌───────┐
+│   │   │   │       │
+│ x │ x │   │       │
+│   │   │   │       │
+├───┼───┤ = │   x   │
+│   │   │   │       │
+│ x │ x │   │       │
+│   │   │   │       │
+└───┴───┘   └───────┘
+```
+
+. . .
+
+*We require idempotency of `f`*
+
+---
+
+# Fixing It
+
+Therefore, `Monoid` is too loose a constraint for `hitTest`.
+
+. . .
+
+We need `Monoid`, plus:
+
+```haskell
+-- commutativity
+forall x y.
+  x <> y = y <> x
+
+-- idempotency
+forall x.
+  x <> x = x
+```
+
+This is a *semilattice.*
+
+---
+
+# Fixing It
+
+```haskell
+class Monoid a => Semilattice a where
+  (/\) :: a -> a -> a
+
+hitTest :: Semilattice m => (a -> m) -> QT a -> Rect -> m
+```
+
+. . .
+
+```haskell
+instance Semilattice Any
+instance Semilattice Or
+instance Ord k => Semilattice (Data.Map.Map k)
+```
+
+---
+
+# Questions?
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+* **Sandy Maguire**
+* sandy@sandymaguire.me
 
