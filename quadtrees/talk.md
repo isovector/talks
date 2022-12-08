@@ -5,7 +5,7 @@ patat:
   wrap: true
   margins:
     top: 2
-    left: 5
+    left: 32
     right: 5
 ---
 
@@ -515,10 +515,20 @@ The implementations are not very involved.
 ---
 
 ```haskell
+type Rect = Quad Int
+
 subdivide :: Rect -> Quad Rect
+subdivide (Quad x y w h) =
+  let halfw = div w 2
+      halfh = div h 2
+      x' = x + halfw
+      y' = y + halfh
+      q x y = Quad x y halfw halfh
+   in Quad (q x y ) (q x' y )
+           (q x y') (q x' y')
 ```
 
-. . .
+---
 
 ```haskell
 fill :: Rect -> a -> SQuadTree a -> QuadTree a
@@ -542,25 +552,88 @@ fill area a' (Split q) =
 
 ---
 
+# It works!
 
+. . .
 
+## Is it right?
 
+. . .
 
+Unclear, but it's certainly *unusable.*
 
+. . .
 
-
+Turns out to be very slow!
 
 ---
 
-BEGIN LAWS
-
----
+Recall:
 
 ```haskell
-data QT a
-data Rect
-data Point
+data QuadTree a
+  = Fill a
+  | Split (Quad (QuadTree a))
 
+type SQuadTree a = QuadTree (Rect, a)
+```
+
+. . .
+
+The `Rect` data is only on the leaves of this tree!
+
+**WE FOOLED OURSELVES**
+
+. . .
+
+Not hard to fix:
+
+```haskell
+type SQuadTree a = (Rect, QuadTree a)
+```
+
+Make everything typecheck again.
+
+---
+
+
+
+---
+
+# First Attempt at the Library
+
+`SQuadTree` isn't nice to work with. Instead, wrap it.
+
+. . .
+
+```haskell
+data QT a = QT
+  { qt_bounds :: Rect
+  , qt_tree   :: QuadTree a
+  }
+```
+
+```haskell
+liftSQuad
+    :: (SQuadTree a -> QuadTree a)
+    -> QT a
+    -> QT a
+liftSQuad f qt@(QT b q) =
+  qt { qt_tree = f (b, q)
+     }
+```
+
+---
+
+**Looks good.**
+
+But what can we say about its semantics?
+
+---
+
+# Looking at Laws
+
+```haskell
 empty   :: Rect -> QT a
 fill    :: Rect -> a -> QT a -> QT a
 get     :: QT a -> Point -> Maybe a
@@ -598,6 +671,8 @@ contains :: Rect -> Point -> Bool
 . . .
 
 Notice this doesn't actually do any bounds checking!
+
+Hard to work around, and complicated laws are smells of a bad design.
 
 ---
 
@@ -679,8 +754,6 @@ Two options:
 
 * Do something different.
 
-> TODO: 18m
-
 ---
 
 # Revisiting the API
@@ -697,13 +770,13 @@ get     :: QT a -> Point -> Maybe a
 hitTest :: QT a -> Rect -> Bool
 ```
 
-> What's the **metaphor**?
+> What's the **model**?
 
 - There isn't one! We don't even know what to strive for.
 
 ---
 
-# Finding the Metaphor
+# Finding the Model
 
 Data structures are *representations of functions.*
 
@@ -717,7 +790,7 @@ Go back to the problem statement.
 
 ---
 
-# Finding the Metaphor
+# Finding the Model
 
 We want to know what's stored where in space.
 
@@ -726,18 +799,22 @@ Therefore...
 . . .
 
 ```haskell
-⟦ QT a ⟧ = Point -> a
+type ⟦ QT a ⟧ = Point -> a
 ```
 
 . . .
 
-We are not trained to see this.
+```haskell
+⟦-⟧ :: QT a -> ⟦ QT a ⟧
+```
 
-Feels inefficient and uncomputable.
+. . .
+
+http://conal.net/papers/type-class-morphisms/
 
 ---
 
-# Taking the Metaphor Seriously
+# Taking the Model Seriously
 
 This has immediate repercussions.
 
@@ -747,7 +824,7 @@ get ::   QT a   -> Point -> Maybe a
 
 ---
 
-# Taking the Metaphor Seriously
+# Taking the Model Seriously
 
 This has immediate repercussions.
 
@@ -757,7 +834,7 @@ get :: ⟦ QT a ⟧ -> Point -> Maybe a
 
 ---
 
-# Taking the Metaphor Seriously
+# Taking the Model Seriously
 
 This has immediate repercussions.
 
@@ -775,7 +852,7 @@ get :: QT a -> Point -> a
 
 ---
 
-# Taking the Metaphor Seriously
+# Taking the Model Seriously
 
 Now:
 
@@ -798,7 +875,7 @@ Looks vaguely like `fill` now.
 
 ---
 
-# Taking the Metaphor Seriously
+# Taking the Model Seriously
 
 What abound `bounds`?
 
@@ -808,7 +885,7 @@ bounds ::   QT a   -> Rect
 
 ---
 
-# Taking the Metaphor Seriously
+# Taking the Model Seriously
 
 What abound `bounds`?
 
@@ -818,7 +895,7 @@ bounds :: ⟦ QT a ⟧ -> Rect
 
 ---
 
-# Taking the Metaphor Seriously
+# Taking the Model Seriously
 
 What abound `bounds`?
 
@@ -853,7 +930,7 @@ Axe it.
 
 ---
 
-# Taking the Metaphor Seriously
+# Taking the Model Seriously
 
 From symmetry:
 
@@ -876,7 +953,7 @@ empty :: a -> QT a
 
 ---
 
-# Taking the Metaphor Seriously
+# Taking the Model Seriously
 
 ```haskell
 pure  :: a -> QT a
@@ -908,50 +985,11 @@ forall qf qa.
 
 ---
 
-# Addressing Asymmetries
+# More Problems
 
-```haskell
-fill :: Rect -> a -> QT a -> QT a
+This is an issue. But there are also others.
 
-forall r a q.
-  ⟦ fill r a q ⟧ = \p ->
-    if contains r p
-      then a
-      else ⟦ q ⟧ p
-```
-
-. . .
-
-This is complicated!
-
-Decompose it?
-
-. . .
-
-
-```haskell
-rect :: a -> a -> Rect -> QT a
-
-forall r a q.
-  ⟦ rect f t r ⟧ = \p ->
-    if contains r p
-      then t
-      else f
-```
-
----
-
-# Addressing Asymmetries
-
-```haskell
-fill :: Rect -> a -> QT a -> QT a
-fill r a q
-  = fromMaybe
-      <$> q
-      <*> rect Nothing (Just a) r
-```
-
-Note: this is a *definition*!
+We'll fix it after we've explored all the problems.
 
 ---
 
@@ -961,7 +999,7 @@ Note: this is a *definition*!
 hitTest :: QT a -> Rect -> Bool
 ```
 
-Needs an update.
+Not enough structure anymore.
 
 . . .
 
@@ -999,98 +1037,196 @@ pointsInRect :: Rect -> [Point]
 
 ---
 
-# Intermission
-
-30m
-
----
-
-# Remaining Questions
-
-- What is `Point`?
-
-. . .
-
-- How do we actually implement this?
-
-. . .
-
-
-The answers to these questions inform one another.
-
----
-
-**This is dangerously persuasive.**
-
-If we were writing a macro; we'd be done at this point.
-
-. . .
-
-Hackage stops here ± some helpers
-
----
-
 # Implementation
 
-Desired API:
-
 ```haskell
-data QT a
-instance Applicative QT
-instance Monoid QT
-
-rect    :: a -> a -> Rect -> QT a
-get     :: Point -> QT a -> a
 hitTest :: Monoid m => (a -> m) -> QT a -> Rect -> m
-```
-
-Contrast against:
-
-```haskell
-data QuadTree a = Fill a | Split (Quad (QuadTree a))
-instance Monad QuadTree
-instance Monoid QuadTree
+hitTest f qt r
+  = isEmptyRect r = mempty
+  | otherwise =
+      case qt of
+        Everywhere a -> f a
+        QT b q a -> ...
+          -- check each `Split` to see if it intersects, if so, recurse
+          -- call `f` on every intersecting `Fill`
 ```
 
 . . .
 
-Biggest problem: `QuadTree` has no notion of space.
+What goes wrong when `f = const (Sum 1)`?
+
+. . .
+
+We can observe the number of intersecting quadrants
+
+. . .
+
+&nbsp;
+
+**THIS IS NOT A PROPERTY** of `Point -> a`
 
 ---
 
-# Implementation
-
-Maybe parameterize `QuadTree` on the rectangle it bounds; enforce this as an
-invariant:
-
-```haskell
-getImpl     :: Point -> QuadTree (Rect, a) -> a
-hitTestImpl :: Monoid m => (a -> m) -> QuadTree (Rect, a) -> Rect -> m
-```
+**WE FOOLED OURSELVES! AGAIN!**
 
 . . .
 
-Problem: **all spatial data is at the leafs.**
+&nbsp;
+
+We can observe something of the interpretation that *doesn't hold in the
+sematics.*
 
 ---
 
-# Implementation
+# Fixing It
 
-Instead, compose with the `(,) Rect` outside:
+**Problem**: we *compress most space.*
+
+. . .
+
+**Bad solution**: expand that space out again.
+
+---
+
+# Fixing It
+
+Why a bad solution? Throws away locality.
+
+---
+
+# Fixing It
+
+```
+┌─┬─┬─┬─┬─┬─┬─┬─┐
+│1│2│3│4│5│6│7│8│  Split
+├─┼─┼─┼─┼─┼─┼─┼─┤    (Split
+│a│b│c│d│e│f│g│h│      (Split 1 2 a b) (Split 3 4 c d)
+├─┴─┼─┴─┼─┴─┼─┴─┤      ... ...)
+│   │   │   │   │    (Split
+│   │   │   │   │      (Split 5 6 e f) (Split 7 8 g h)
+│   │   │   │   │      ... ...)
+├───┴───┼───┴───┤    ...
+│       │       │    ...
+│       │       │
+│       │       │
+│       │       │
+│       │       │
+│       │       │
+│       │       │
+└───────┴───────┘
+```
+
+---
+
+# Fixing It
+
+Not only do we throw away locality, we also throw away our *compression.*
+
+Two representations of the same space:
+
+```
+┌───────┐       ┌───┬───┐
+│       │       │   │   │
+│       │       │ x │ x │
+│       │       │   │   │
+│   x   │   =   ├───┼───┤
+│       │       │   │   │
+│       │       │ x │ x │
+│       │       │   │   │
+└───────┘       └───┴───┘
+```
+
+It would be nice if we could exploit this and always use the left-side.
+
+---
+
+# Fixing It
+
+**Problem**: we *compress most space.*
+
+**Solution**: patch `hitTest`'s type to make it unobservable.
+
+. . .
+
+&nbsp;
+
+Good example of the degrees of freedom we can exploit in our API design.
+
+---
+
+# Fixing It
+
+Locality concerns require our monoidal operation to be *commutative:*
 
 ```haskell
-getImpl     :: Point -> (Rect, QuadTree a) -> a
-hitTestImpl :: Monoid m => (a -> m) -> (Rect, QuadTree a) -> Rect -> m
+-- commutativity
+forall x y.
+  x <> y = y <> x
 ```
 
 . . .
 
-Maybe this is our wrapper type:
+Compression concerns require *idempotence:*
+
+```haskell
+-- idempotency
+forall x.
+  x <> x = x
+```
+
+. . .
+
+Therefore, `Monoid` is too loose a constraint for `hitTest`!
+
+---
+
+# Fixing It
+
+A monoid with idempotence and commutativity is called a *semilattice.*
+
+```haskell
+class Monoid a => Semilattice a where
+  (/\) :: a -> a -> a
+```
+
+. . .
+
+```haskell
+instance Semilattice Any
+instance Semilattice Or
+instance Ord a => Semilattice (Data.Set.Set a)
+```
+
+. . .
+
+```haskell
+hitTest :: Semilattice m => (a -> m) -> QT a -> Rect -> m
+```
+
+---
+
+**The semantics are fixed!**
+
+But is it right?
+
+. . .
+
+Almost.
+
+. . .
+
+We are missing an `Applicative` instance for `QT`.
+
+---
+
+# The Hunt for the Missing Applicative
+
+Recall:
 
 ```haskell
 data QT a = QT
-  { qt_bounds :: Rect
-  , qt_tree   :: QuadTree a
+  { qt_bounds     :: Rect
+  , qt_tree       :: QuadTree a
   }
 ```
 
@@ -1100,18 +1236,9 @@ What if we lookup a point **outside of bounds?**
 
 ---
 
-# Implementation
+# The Hunt for the Missing Applicative
 
-```haskell
-data QT a = QT
-  { qt_bounds     :: Rect
-  , qt_tree       :: QuadTree a
-  }
-```
-
----
-
-# Implementation
+Recall:
 
 ```haskell
 data QT a = QT
@@ -1121,9 +1248,7 @@ data QT a = QT
   }
 ```
 
-. . .
-
-Getting an `Applicative` instance is hard.
+What if we lookup a point **outside of bounds?**
 
 ---
 
@@ -1140,7 +1265,6 @@ Getting an `Applicative` instance is hard.
 ```haskell
 data Ex a = Ex
   { foo :: [a]        -- has applicative
-  , bar :: State s a  -- has applicative
   , qux :: Sum Int    -- has monoid
   }
 ```
@@ -1154,20 +1278,17 @@ data Ex a = Ex
 > products of "monoidal" types have obvious applicative instances.
 
 ```haskell
-data Ex a = Ex1
+data Ex a = Ex
   { foo :: [a]        -- has applicative
-  , bar :: State s a  -- has applicative
   , qux :: Sum Int    -- has monoid
   }
 
 instance Applicative Ex where
   pure a = Ex (pure a)  -- use applicative
-              (pure a)  -- use applicative
               mempty    -- use monoid
-  Ex fx fy fz <*> Ex ax ay az =
+  Ex fx fy <*> Ex ax ay =
     Ex (fx <*> ax)  -- use applicative
-       (fy <*> ay)  -- use applicative
-       (fz <> az)   -- use monoid
+       (fy <> ay)   -- use monoid
 ```
 
 . . .
@@ -1278,16 +1399,20 @@ Desirable to find "quantized" bounding regions that we can cheaply merge.
 
 
 ```
-┌───2ⁿ──┐
-┌───┬───┐
-│   │   │
-│ 1 │ 2 │
-│   │   │
-├───┼───┤ 0
-│   │   │
-│ 3 │ 4 │
-│   │   │
-└───┴───┘
+
+
+
+
+    ┌───2ⁿ──┐
+    ┌───┬───┐
+    │   │   │
+    │ 1 │ 2 │
+    │   │   │
+    ├───┼───┤ 0
+    │   │   │
+    │ 3 │ 4 │
+    │   │   │
+    └───┴───┘
 ```
 
 ---
@@ -1316,6 +1441,8 @@ We can then "resize" the canvas to size $2ⁿ⁺¹$
 │   │   │   │   │
 └───┴───┴───┴───┘
 ```
+
+. . .
 
 This looks like it will work!
 
@@ -1365,161 +1492,64 @@ This looks good!
 
 ---
 
-# A Problem in Semantics
+# Addressing Asymmetries
 
 ```haskell
-hitTest :: Monoid m => (a -> m) -> QT a -> Rect -> m
-hitTest f qt r
-  = isEmptyRect r = mempty
-  | otherwise =
-      case qt of
-        Everywhere a -> f a
-        QT b q a -> ...
-          -- check each `Split` to see if it intersects, if so, recurse
-          -- call `f` on every intersecting `Fill`
+fill :: Rect -> a -> QT a -> QT a
+
+forall r a q.
+  ⟦ fill r a q ⟧ = \p ->
+    if contains r p
+      then a
+      else ⟦ q ⟧ p
 ```
 
 . . .
 
-What goes wrong when `f = const (Sum 1)`?
+This is complicated!
+
+Decompose it?
 
 . . .
 
-We can observe the number of intersecting quadrants
-
-. . .
-
-&nbsp;
-
-**THIS IS NOT A PROPERTY** of `Point -> a`
-
----
-
-**WE FOOLED OURSELVES! AGAIN!**
-
-&nbsp;
-
-We can observe something of the interpretation that *doesn't hold in the
-sematics.*
-
----
-
-# Fixing It
-
-This is not too bad of a problem.
-
-We have many axes of freedom in our API design to make everything work out.
-
----
-
-# Fixing It
-
-**Problem**: we *compress most space.*
-
-. . .
-
-**Bad solution**: expand that space out again.
-
-. . .
-
-&nbsp;
-
-**Good solution**: patch `hitTest`'s type to make it unobservable.
-
----
-
-# Fixing It
-
-```
-┌─┬─┬─┬─┬─┬─┬─┬─┐
-│1│2│3│4│5│6│7│9│
-├─┼─┼─┼─┼─┼─┼─┼─┤
-│a│b│c│d│e│f│g│h│
-├─┴─┼─┴─┼─┴─┼─┴─┤
-│   │   │   │   │
-│   │   │   │   │
-│   │   │   │   │
-├───┴───┼───┴───┤
-│       │       │
-│       │       │
-│       │       │
-│       │       │
-│       │       │
-│       │       │
-│       │       │
-└───────┴───────┘
-```
-
-. . .
-
-Ideal if `hitTest f = getDual . hitTest (Dual . f)`.
-
-. . .
-
-*We want commutativity of `f`*
-
----
-
-# Fixing It
-
-`Split . pure . Fill` must be indistinguishable from `Fill`!
-
-```
-┌───┬───┐   ┌───────┐
-│   │   │   │       │
-│ x │ x │   │       │
-│   │   │   │       │
-├───┼───┤ = │   x   │
-│   │   │   │       │
-│ x │ x │   │       │
-│   │   │   │       │
-└───┴───┘   └───────┘
-```
-
-. . .
-
-*We require idempotency of `f`*
-
----
-
-# Fixing It
-
-Therefore, `Monoid` is too loose a constraint for `hitTest`.
-
-. . .
-
-We need `Monoid`, plus:
 
 ```haskell
--- commutativity
-forall x y.
-  x <> y = y <> x
+rect :: a -> a -> Rect -> QT a
 
--- idempotency
-forall x.
-  x <> x = x
+forall r a q.
+  ⟦ rect f t r ⟧ = \p ->
+    if contains r p
+      then t
+      else f
 ```
-
-This is a *semilattice.*
 
 ---
 
-# Fixing It
+# Addressing Asymmetries
 
 ```haskell
-class Monoid a => Semilattice a where
-  (/\) :: a -> a -> a
-
-hitTest :: Semilattice m => (a -> m) -> QT a -> Rect -> m
+fill :: Rect -> a -> QT a -> QT a
+fill r a q
+  = fromMaybe
+      <$> q
+      <*> rect Nothing (Just a) r
 ```
+
+Note: this is a *definition*!
+
+---
+
+# Takeaways
+
+- Bugs in the implementation point to bugs in the semantics.
 
 . . .
 
-```haskell
-instance Semilattice Any
-instance Semilattice Or
-instance Ord a => Semilattice (Data.Set.Set a)
-```
+- Bad semantics in libraries lead to immeasurable pain for downstream users.
+
+. . .
+
+- Decide on a model to define correctness; ruthlessly pursue it.
 
 ---
 
@@ -1533,6 +1563,4 @@ instance Ord a => Semilattice (Data.Set.Set a)
 
 * **Sandy Maguire**
 * sandy@sandymaguire.me
-
-53m
 
