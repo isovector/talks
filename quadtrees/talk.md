@@ -31,17 +31,16 @@ Today's slides:
 
 ---
 
-# A Philosophical Dichotomy
+&nbsp;
 
-Nobody tries to write bugs.
+&nbsp;
 
-. . .
+&nbsp;
 
-Bugs arise through local/global impedience mismatches.
-
-. . .
-
-Bugs in implementation are probably bugs in design.
+> The first principle is that you must not fool yourself
+> and you are the easiest person to fool.
+>
+> --Richard Feynman
 
 ---
 
@@ -52,7 +51,7 @@ As programmers we each fall into two roles:
 - users of libraries
 - writers of libraries
 
-These roles come with drastically different philosophies.
+These roles come with drastically different approaches.
 
 ---
 
@@ -81,6 +80,10 @@ As a *library writer*:
 
 . . .
 
+- I wrote it all; have a good understanding of the moving pieces.
+
+. . .
+
 - Likely written as part of a larger problem; separated afterwards.
 
 . . .
@@ -100,11 +103,50 @@ As a *library writer*:
 
 **These two roles are fundamentally in tension.**
 
+&nbsp;
+
 . . .
 
-Users want *libraries.*
-
 Writers provide *macros.*
+
+But users want *libraries.*
+
+---
+
+# Libraries vs Macros
+
+Macros:
+
+- Automate tedious tasks.
+
+. . .
+
+- Are explicitly about "how", never "why"
+
+. . .
+
+- Present pre-baked recipes; hope your problem can be solved by one.
+
+---
+
+# Examples of Macros
+
+- Bash scripts
+- Functions which exist only to call other functions
+- API Wrappers
+- CI
+- "Facade pattern"
+- Most algorithms
+
+&nbsp;
+
+. . .
+
+Characterized by:
+
+- lack of flexibility/composability
+- the implementation is the specification
+- require debugging the underlying layer when things go wrong
 
 ---
 
@@ -139,19 +181,86 @@ This is not true of most software we link in.
 
 ---
 
-# Libraries vs Macros
+# What Makes a Good Library?
 
-Macros:
+A good library interleaves these three principles:
 
-- Automate tedious tasks.
+&nbsp;
 
-. . .
-
-- Are explicitly about "how", never "why"
+- *Flexibility:* applicability, composability, discoverability
 
 . . .
 
-- Present pre-baked recipes; hope your problem can be solved by one.
+- *Elegance:* parsimony, symmetry, derived from more general ideas
+
+. . .
+
+- *Correctness:* can you trust it?
+
+. . .
+
+&nbsp;
+
+Sounds overly constraining; but we have many degrees of freedom.
+
+---
+
+# On Correctness
+
+Correctness exists only in relation to a *model.*
+
+. . .
+
+The model is a metaphor for how the library behaves.
+
+. . .
+
+The model and the library must behave identically.
+
+**It is a mortal sin to do otherwise.**
+
+---
+
+# On Correctness
+
+Nobody tries to write bugs.
+
+. . .
+
+Bugs happen when our understanding disagrees with the implementation.
+
+&nbsp;
+
+. . .
+
+*Our understanding is almost always more correct than the implementation is.*
+
+&nbsp;
+
+. . .
+
+*Corollary:* bugs in implementation arise from bugs in the semantics.
+
+---
+
+# On Correctness
+
+Having an indistinguishable model is an extremely tight constraint on
+implementation.
+
+. . .
+
+This means:
+
+- *every observation* you can make of the library *must hold* of the model
+
+- you must not leak any implementation details
+
+. . .
+
+However:
+
+- but not everything expressible about the model need hold in the library
 
 ---
 
@@ -192,12 +301,6 @@ I wanted to build a scatter plot with labels.
 . . .
 
 - I'll use a quadtree!
-
-&nbsp;
-
-. . .
-
-Definitely a *macro* invocation!
 
 ---
 
@@ -297,18 +400,23 @@ Definitely a *macro* invocation!
 
 ---
 
-# Unimpressed
+# How Does a Quadtree Help?
+
+Most problems have space locality:
+
+> "Nearby areas of space likely have the same value."
+
+Quadtrees take advantage of locality to compress information.
+
+---
+
+# Missing Library Support
 
 Three options on hackage. None are what I'm looking for:
 
 . . .
 
 - No desirable instances (eg no `Monoid`)
-
-. . .
-
-- Weird restrictions:
-  `getLocation :: Eq a => Location -> QuadTree a -> a`{.haskell}
 
 . . .
 
@@ -321,6 +429,130 @@ Might as well just use `Map Location a`.
 ---
 
 **I guess I'll write my own.**
+
+---
+
+# Implementation
+
+```haskell
+data QuadTree a
+  = Fill a
+  | Split (QuadTree a) (QuadTree a)
+          (QuadTree a) (QuadTree a)
+```
+
+. . .
+
+Why not:
+
+```haskell
+data Quad a = Quad a a
+                   a a
+
+data QuadTree a
+  = Fill a
+  | Split (Quad (QuadTree a))
+```
+
+---
+
+# Implementation
+
+From the zoo:
+
+```haskell
+data Free f a
+  = Pure a
+  | Wrap (f (Free f a))
+```
+
+```haskell
+type QuadTree = Free Quad
+```
+
+This is the free monad on `Quad`s!
+
+---
+
+**This is dangerously persuasive.**
+
+It can be tempting to say our work here is done.
+
+. . .
+
+We have implemented a data structure in turns of the Functional Programming
+Pantheon.
+
+. . .
+
+Slap some perfunctory operations on it and call it a day.
+
+. . .
+
+And that's what I did.
+
+---
+
+# Operations
+
+```haskell
+type Rect = Quad Int
+type SQuadTree a = QuadTree (Rect, a)
+
+data Point = Point
+  { p_x :: Int
+  , p_y :: Int
+  }
+
+regionify :: QuadTree a -> Rect -> SQuadTree a
+fill      :: Rect -> a -> SQuadTree a -> QuadTree a
+get       :: SQuadTree a -> Point -> Maybe a
+hitTest   :: SQuadTree a -> Rect -> Bool
+```
+
+The implementations are not very involved.
+
+---
+
+```haskell
+subdivide :: Rect -> Quad Rect
+```
+
+. . .
+
+```haskell
+fill :: Rect -> a -> SQuadTree a -> QuadTree a
+fill area a' v@(Fill (bounds, a))
+  | area `contains`   bounds = Fill a'
+  | area `intersects` bounds = Split $
+      fill area a'
+        <$> ( (,) <$> subdivide bounds
+                  <*> pure @Quad
+                        (pure @QuadTree a)
+            )
+  | otherwise = v
+```
+
+. . .
+
+```haskell
+fill area a' (Split q) =
+  Split $ fill area a' <$> q
+```
+
+---
+
+
+
+
+
+
+
+
+
+---
+
+BEGIN LAWS
 
 ---
 
@@ -380,6 +612,32 @@ intersect :: Rect -> Rect -> Rect
 
 ---
 
+```
+┌──────────┐
+│          │
+│       ┌──┼────┐
+│       │  │    │
+│       └──┼────┘
+│          │
+└──────────┘
+```
+
+---
+
+```
+┌──────────┐
+│          │
+│       ┌──┤
+│       │  │
+│       └──┤
+│          │
+└──────────┘
+```
+
+---
+
+# Uh Oh
+
 ```haskell
   get (fill r a q)
 =  -- fill bounded
@@ -403,7 +661,7 @@ intersect r _ = r
 
 ---
 
-# WE FOOLED OURSELVES
+**WE FOOLED OURSELVES**
 
 . . .
 
@@ -421,7 +679,7 @@ Two options:
 
 * Do something different.
 
-> TODO: 15m
+> TODO: 18m
 
 ---
 
@@ -476,8 +734,6 @@ Therefore...
 We are not trained to see this.
 
 Feels inefficient and uncomputable.
-
-> 24m
 
 ---
 
@@ -664,6 +920,8 @@ forall r a q.
       else ⟦ q ⟧ p
 ```
 
+. . .
+
 This is complicated!
 
 Decompose it?
@@ -743,6 +1001,8 @@ pointsInRect :: Rect -> [Point]
 
 # Intermission
 
+30m
+
 ---
 
 # Remaining Questions
@@ -757,63 +1017,6 @@ pointsInRect :: Rect -> [Point]
 
 
 The answers to these questions inform one another.
-
----
-
-# Implementation
-
-```haskell
-data QuadTree a
-  = Fill a
-  | Split (QuadTree a) (QuadTree a)
-          (QuadTree a) (QuadTree a)
-```
-
-. . .
-
-Why not:
-
-```haskell
-data Quad a = Quad a a
-                   a a
-
-data QuadTree a
-  = Fill a
-  | Split (Quad (QuadTree a))
-```
-
----
-
-# Implementation
-
-From the zoo:
-
-```haskell
-data Free f a
-  = Pure a
-  | Wrap (f (Free f a))
-```
-
-```haskell
-type QuadTree = Free Quad
-```
-
-This is the free monad on `Quad`s!
-
----
-
-**This is dangerously persuasive.**
-
-We have implemented a data structure in turns of the Functional Programming
-Pantheon.
-
-. . .
-
-It can be tempting to say our work here is done.
-
-. . .
-
-But, it doesn't correspond at all with our desired API or semantics.
 
 ---
 
@@ -935,7 +1138,7 @@ Getting an `Applicative` instance is hard.
 . . .
 
 ```haskell
-data Ex a = Ex1
+data Ex a = Ex
   { foo :: [a]        -- has applicative
   , bar :: State s a  -- has applicative
   , qux :: Sum Int    -- has monoid
@@ -1184,6 +1387,8 @@ What goes wrong when `f = const (Sum 1)`?
 
 We can observe the number of intersecting quadrants
 
+. . .
+
 &nbsp;
 
 **THIS IS NOT A PROPERTY** of `Point -> a`
@@ -1313,7 +1518,7 @@ hitTest :: Semilattice m => (a -> m) -> QT a -> Rect -> m
 ```haskell
 instance Semilattice Any
 instance Semilattice Or
-instance Ord k => Semilattice (Data.Map.Map k)
+instance Ord a => Semilattice (Data.Set.Set a)
 ```
 
 ---
@@ -1328,4 +1533,6 @@ instance Ord k => Semilattice (Data.Map.Map k)
 
 * **Sandy Maguire**
 * sandy@sandymaguire.me
+
+53m
 
