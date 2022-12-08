@@ -16,18 +16,10 @@ patat:
 ---
 
 * **Sandy Maguire**
-* sandy@sandymaguire.me
-
-. . .
+* hello@sandymaguire.me
 
 * reasonablypolymorphic.com
 * github.com/isovector
-
-. . .
-
-Today's slides:
-
-> reasonablypolymorphic.com/quadtrees
 
 ---
 
@@ -1553,13 +1545,15 @@ Note: this is a *definition*!
 
 ---
 
+&nbsp;
+
+# Resources
+
+- http://conal.net/papers/type-class-morphisms/
+
+&nbsp;
+
 # Questions?
-
-&nbsp;
-
-&nbsp;
-
-&nbsp;
 
 * **Sandy Maguire**
 * sandy@sandymaguire.me
