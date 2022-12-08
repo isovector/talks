@@ -5,22 +5,8 @@ patat:
   wrap: true
   margins:
     top: 2
-    left: 32
-    right: 5
----
-
-# Just Because It Works Doesn't Mean It's Right
-
-## Finding Elegance in Quadtrees
-
----
-
-* **Sandy Maguire**
-* hello@sandymaguire.me
-
-* reasonablypolymorphic.com
-* github.com/isovector
-
+    left: 20
+    right: 20
 ---
 
 &nbsp;
@@ -33,6 +19,27 @@ patat:
 > and you are the easiest person to fool.
 >
 > --Richard Feynman
+
+---
+
+&nbsp;
+
+# Just Because It Works Doesn't Mean It's Right
+
+## Finding Elegance in Quadtrees
+
+&nbsp;
+
+Slides available: *tinyurl.com/hsx-quadtrees*
+
+---
+
+* **Sandy Maguire**
+* hello@sandymaguire.me
+
+* reasonablypolymorphic.com
+* github.com/isovector
+
 
 ---
 
