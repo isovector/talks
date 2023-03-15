@@ -2,6 +2,18 @@
 
 ## Installing Agda
 
+### From a Package Manger
+
+[See the documentation
+here.](https://agda.readthedocs.io/en/latest/getting-started/installation.html#prebuilt-packages-and-system-specific-instructions)
+Make sure your resultant version of Agda is `2.6.3`. If not, you will have to
+build from source.
+
+*You do not need to install the standard library for this talk.*
+
+
+### From Source
+
 First, install `stack` as [documented
 here.](https://docs.haskellstack.org/en/stable/#how-to-install-stack). Then:
 
@@ -14,6 +26,8 @@ $ stack --stack-yaml stack-8.10.7.yaml install
 This will take about 30 minutes. If everything was successful, you should now
 have `agda` on your PATH.
 
+*You do not need to install the standard library for this talk.*
+
 
 ## Editor Integration
 
@@ -25,6 +39,14 @@ tech-support will only be provided for VS Code, Vim and Emacs. If you don't have
 a strong preference between these three, you should choose VS Code; Agda is
 already more than enough to occupy your attention, and is not a good time to
 also try to learn a new editor.
+
+Create a new file `test.agda`:
+
+```agda
+module test where
+```
+
+which we will use to test the editor environment setup below.
 
 ### VS Code
 
@@ -83,8 +105,8 @@ function! AgdaFiletype()
 endfunction
 ```
 
-`:source` your `.vimrc` file, and press `<leader>l`. If you get a new split
-saying `All Done`, you're ready to go.
+`:source` your `.vimrc` file. Open `test.agda`, and press `<leader>l`. If you
+get a new split saying `All Done`, you're ready to go.
 
 Check out [the
 documentation](https://github.com/isovector/cornelis#readme)
@@ -93,15 +115,16 @@ if you need a hand.
 
 ### Emacs
 
-Add the following to your `.emacs` file:
+Try running `agda-mode setup`. If this succeeds, you are all setup. If not, add
+the following to your emacs configuration:
 
 ```elisp
 (load-file (let ((coding-system-for-read 'utf-8))
                 (shell-command-to-string "agda-mode locate")))
 ```
 
-Try running `C-c C-l` to load Agda. If you get a message saying `All Done`,
-you're ready to go.
+Try running `C-c C-l` in `test.agda` to load Agda. If you get a message saying
+`All Done`, you're ready to go.
 
 Check out [the
 documentation](https://agda.readthedocs.io/en/latest/getting-started/installation.html#step-3-running-the-agda-mode-program)
